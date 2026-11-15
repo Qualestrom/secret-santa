@@ -19,6 +19,12 @@ body {
   min-height: 100dvh;
 }
 
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
 .visually-hidden:where(:not(:focus-within, :active)) {
   position: absolute !important;
   clip-path: inset(50%) !important;

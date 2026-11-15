@@ -91,13 +91,14 @@ export default function App() {
 
   // Sync browser document title
   useEffect(() => {
-    if (state?.eventName) {
-      document.title =
-        state.eventName.toLowerCase() === 'exchange gift'
-          ? 'Exchange Gift'
-          : `${state.eventName} · Exchange Gift`;
+    if (
+      state?.eventName &&
+      state.eventName.toLowerCase() !== 'exchange gift' &&
+      state.eventName.toLowerCase() !== 'gift exchange'
+    ) {
+      document.title = `${state.eventName} · Year-End Dinner`;
     } else {
-      document.title = 'Exchange Gift';
+      document.title = 'Gift Exchange · Year-End Dinner';
     }
   }, [state?.eventName]);
 
@@ -128,41 +129,56 @@ export default function App() {
       {/* Gentle Shimmer Particles */}
       <SnowfallLayer />
 
-      {/* Centered Top Website Title Only (No Header Bar, No Budget/Status Pills) */}
-      <div className="relative z-20 mb-2.5 flex shrink-0 items-center justify-center gap-3 sm:mb-4">
+      {/* Centered Top Event Header (No Header Bar, No External Logo Image) */}
+      <header className="relative z-20 mb-2 flex shrink-0 flex-col items-center justify-center text-center sm:mb-3">
         <button
           type="button"
           onClick={handleCrestTap}
-          aria-label="Exchange Gift Crest"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4CE6B8] text-[#061A44] shadow-[0_4px_18px_rgba(76,230,184,0.45)] ring-2 ring-white/80 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.93]"
+          aria-label="Gift Exchange — Year-End Dinner Hosted by Trifecta, An Optima Company"
+          className="group flex flex-col items-center justify-center rounded-2xl px-3 py-1 text-center transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98]"
         >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
-            <path
-              d="M12 3L14.4 8.8L20.6 9.3L15.9 13.4L17.3 19.5L12 16.2L6.7 19.5L8.1 13.4L3.4 9.3L9.6 8.8L12 3Z"
-              fill="#061A44"
-              stroke="#061A44"
-              strokeWidth="1.2"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-
-        <div onClick={handleCrestTap} className="select-none text-left">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#4CE6B8]">
-            Gift Exchange
-          </p>
-          <p className="font-serif text-2xl leading-none text-white sm:text-3xl">
-            {!state?.eventName || state.eventName.toLowerCase() === 'exchange gift' ? (
+          <p className="font-serif text-3xl italic leading-none tracking-tight sm:text-4xl">
+            {!state?.eventName ||
+            state.eventName.toLowerCase() === 'exchange gift' ||
+            state.eventName.toLowerCase() === 'gift exchange' ? (
               <>
-                <span className="text-white">Exchange </span>
-                <span className="text-[#4CE6B8]">Gift</span>
+                <span className="text-white drop-shadow-[1.5px_1.5px_0_rgba(76,230,184,0.4)]">
+                  Gift{' '}
+                </span>
+                <span className="text-[#4CE6B8]">Exchange</span>
               </>
             ) : (
-              state.eventName
+              <span className="text-white">{state.eventName}</span>
             )}
           </p>
-        </div>
-      </div>
+
+          <p className="mt-1 font-sans text-[11px] font-bold uppercase tracking-[0.28em] text-[#4CE6B8] sm:text-xs">
+            Year-End Dinner
+          </p>
+
+          <div className="mt-1 flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5">
+            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-white/90 sm:text-[10px]">
+              Hosted by
+            </span>
+            <span className="inline-flex items-baseline gap-1.5">
+              <span className="font-serif text-base italic leading-none text-white sm:text-lg">
+                Trifecta
+              </span>
+              <span className="text-xs text-[#4CE6B8]/70" aria-hidden="true">
+                |
+              </span>
+              <span className="font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-[#B8D0F0] sm:text-[11px]">
+                An Optima Company
+              </span>
+            </span>
+          </div>
+
+          <span
+            aria-hidden="true"
+            className="mt-1 h-1 w-28 rounded-full bg-gradient-to-r from-transparent via-[#4CE6B8]/75 to-transparent blur-[1px]"
+          />
+        </button>
+      </header>
 
       {/* Main Centered / Side-by-Side Responsive Stage */}
       <main className="relative z-20 flex w-full max-w-6xl shrink-0 flex-col items-center justify-center gap-4 lg:flex-row lg:items-stretch lg:gap-5">

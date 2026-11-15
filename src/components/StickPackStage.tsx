@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowsClockwise,
-  Check,
   Eye,
   EyeSlash,
   Gift,
@@ -11,7 +10,7 @@ import {
 } from '@phosphor-icons/react';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ApiError, redrawSelfMatch, revealDrawMatch } from '../lib/api';
+import { ApiError, revealDrawMatch } from '../lib/api';
 import type { EventState, SavedDrawRecord } from '../types';
 import { ErrorMark } from './ErrorMark';
 import { HollySprig } from './ChristmasDecor';
@@ -98,7 +97,6 @@ export function StickPackStage({
   const [hoveredStick, setHoveredStick] = useState<number | null>(null);
   const [peekStick, setPeekStick] = useState<number | null>(null);
   const [pullingStick, setPullingStick] = useState<number | null>(null);
-  const [redrawing, setRedrawing] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [shuffleSeed, setShuffleSeed] = useState(1);
   const [drawError, setDrawError] = useState<string | null>(null);
@@ -244,39 +242,6 @@ export function StickPackStage({
     } finally {
       setPullingStick(null);
     }
-  };
-
-  const handleRedrawSelf = async () => {
-    if (!savedDraw || redrawing) return;
-    setDrawError(null);
-    setRedrawing(true);
-    try {
-      const result = await redrawSelfMatch(savedDraw.claimId, savedDraw.pickedId);
-      const record: SavedDrawRecord = {
-        roundId: result.state.roundId,
-        claimId: result.claimId,
-        pickedId: result.pickedId,
-        recipientName: result.assignedToName,
-        stickNumber: savedDraw.stickNumber,
-      };
-      writeSavedDraw(record);
-      setSavedDraw(record);
-      setHideMatchText(false);
-      onStateUpdate(result.state);
-      fireCelebrationConfetti();
-    } catch (err) {
-      setDrawError(err instanceof ApiError ? err.message : 'Unable to swap sticks right now.');
-    } finally {
-      setRedrawing(false);
-    }
-  };
-
-  const handleNextPersonSharedDevice = () => {
-    clearSavedDraw();
-    setSavedDraw(null);
-    setHideMatchText(false);
-    setDrawError(null);
-    setClaimId(rotateClaimId());
   };
 
   // Spread & spacing tuned to sit cleanly inside the 212px cup mouth across mobile and desktop
@@ -695,8 +660,8 @@ export function StickPackStage({
                 </div>
 
                 <p className="text-[11px] leading-snug text-[#B8D0F0]">
-                  This name has been locked to your draw and removed from the pack so nobody else
-                  can pick the same person.
+                  Your draw is locked to this device and removed from the pack so each participant
+                  can only pull one stick.
                 </p>
 
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -717,34 +682,6 @@ export function StickPackStage({
                       </>
                     )}
                   </button>
-
-                  {remainingCount > 0 && (
-                    <button
-                      type="button"
-                      disabled={redrawing}
-                      onClick={handleRedrawSelf}
-                      className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-[#4CE6B8]/45 bg-[#0A2663] px-4 py-2 text-xs font-semibold text-[#4CE6B8] transition-colors hover:bg-[#0D2E70] disabled:opacity-50"
-                    >
-                      <ArrowsClockwise
-                        size={14}
-                        weight="bold"
-                        className={redrawing ? 'animate-spin' : ''}
-                        aria-hidden="true"
-                      />
-                      {redrawing ? 'Swapping...' : 'Picked Myself? Redraw'}
-                    </button>
-                  )}
-
-                  {remainingCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleNextPersonSharedDevice}
-                      className="atelier-btn inline-flex items-center gap-1.5 rounded-full bg-[#4CE6B8] px-4 py-2 text-xs font-bold text-[#061A44] transition-colors hover:bg-[#6EF5CD]"
-                    >
-                      <Check size={14} weight="bold" aria-hidden="true" />
-                      Next Person
-                    </button>
-                  )}
                 </div>
               </div>
             </motion.div>

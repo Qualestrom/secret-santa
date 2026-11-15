@@ -4,7 +4,6 @@ import {
   ArrowUpRight,
   Check,
   Lock,
-  LockOpen,
   Plus,
   ShieldCheck,
   Trash,
@@ -100,6 +99,11 @@ export function AdminDialog({
       if (!dialog.open) {
         dialog.showModal();
       }
+      if (activeAdminPin) {
+        postEventAction('admin_verify', { adminPin: activeAdminPin })
+          .then((res) => onStateUpdate(res.state))
+          .catch(() => {});
+      }
       requestAnimationFrame(() => {
         if (!activeAdminPin && loginPinRef.current) {
           syncElementAria(loginPinRef.current, false);
@@ -109,7 +113,7 @@ export function AdminDialog({
     } else if (dialog.open) {
       dialog.close();
     }
-  }, [open, activeAdminPin]);
+  }, [open, activeAdminPin, onStateUpdate]);
 
   useEffect(() => {
     if (!open) return;
@@ -173,9 +177,7 @@ export function AdminDialog({
       (res) => {
         const count = res.addedCount ?? 1;
         const label = count > 1 ? `${count} participants` : trimmed;
-        return res.state.phase === 'DRAWING'
-          ? `Added ${label} — stick draw is live and freshly shuffled!`
-          : `Added ${label} to the Christmas pack.`;
+        return `Added ${label} into the Christmas tin!`;
       }
     );
     if (ok) {
@@ -227,9 +229,9 @@ export function AdminDialog({
     }
   };
 
-  const isDrawing = state.phase === 'DRAWING';
-  const total = state.participants.length;
-  const drawnCount = state.participants.filter((p) => p.hasDrawn).length;
+  const total = state.totalCount;
+  const drawnCount = Math.max(0, total - state.remainingCount);
+  const roster = state.participants ?? [];
 
   return (
     <dialog
@@ -371,34 +373,12 @@ export function AdminDialog({
                   </button>
                 </div>
 
-                {!isDrawing ? (
+                {total === 0 ? (
                   <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] p-4">
-                    <p className="mb-4 text-sm text-[#D8E2DC]">
-                      {total >= 3
-                        ? `${total} names loaded in the tin. Activate the stick draw when everyone is ready to pick!`
-                        : `Add at least 3 participant names below before starting (${total} added so far).`}
+                    <p className="text-sm text-[#D8E2DC]">
+                      Add participant names below. As soon as names are added, sticks inside the tin
+                      can be pulled immediately!
                     </p>
-                    <button
-                      type="button"
-                      disabled={total < 3 || busyAction === 'admin_start_draw'}
-                      onClick={() =>
-                        runAdminAction(
-                          'admin_start_draw',
-                          {},
-                          'Stick draw activated! Guests can now tap their name and pick a stick.'
-                        )
-                      }
-                      className="atelier-btn group flex w-full items-center justify-between rounded-full bg-[#B91C1C] py-2 pl-5 pr-2 text-sm font-semibold text-[#FFFDF9] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#991B1B] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <span>
-                        {busyAction === 'admin_start_draw'
-                          ? 'Shuffling Sticks...'
-                          : 'Activate Stick Draw (Lock List & Shuffle)'}
-                      </span>
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/20">
-                        <ArrowUpRight size={16} weight="regular" aria-hidden="true" />
-                      </span>
-                    </button>
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] p-4">
@@ -414,38 +394,21 @@ export function AdminDialog({
                         style={{ width: `${total > 0 ? (drawnCount / total) * 100 : 0}%` }}
                       />
                     </div>
-                    <div className="flex flex-wrap gap-2.5">
-                      <button
-                        type="button"
-                        disabled={busyAction === 'admin_reshuffle'}
-                        onClick={() =>
-                          runAdminAction(
-                            'admin_reshuffle',
-                            {},
-                            'All sticks freshly re-shuffled and statuses reset.'
-                          )
-                        }
-                        className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.16] bg-white/[0.06] px-4 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.12] active:scale-[0.98]"
-                      >
-                        <ArrowsClockwise size={14} weight="regular" aria-hidden="true" />
-                        Re-shuffle All Sticks
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busyAction === 'admin_reopen_registration'}
-                        onClick={() =>
-                          runAdminAction(
-                            'admin_reopen_registration',
-                            {},
-                            'Draw paused! You can edit the participant list now.'
-                          )
-                        }
-                        className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.16] bg-white/[0.06] px-4 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.12] active:scale-[0.98]"
-                      >
-                        <LockOpen size={14} weight="regular" aria-hidden="true" />
-                        Pause Draw &amp; Edit Names
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      disabled={busyAction === 'admin_reshuffle'}
+                      onClick={() =>
+                        runAdminAction(
+                          'admin_reshuffle',
+                          {},
+                          'All sticks returned to the tin! Everyone can pull freshly.'
+                        )
+                      }
+                      className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.16] bg-white/[0.06] px-4 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.12] active:scale-[0.98]"
+                    >
+                      <ArrowsClockwise size={14} weight="regular" aria-hidden="true" />
+                      Put All Sticks Back in Tin (Re-shuffle)
+                    </button>
                   </div>
                 )}
               </section>
@@ -462,8 +425,8 @@ export function AdminDialog({
                   Participant List (Spoiler-Free)
                 </h3>
                 <p className="mb-3 text-xs text-[#D8E2DC]/80">
-                  Spoiler-Free: Pairings are completely hidden from this console so the organizer can
-                  join the draw too. Adding 3 or more names activates the stick draw automatically.
+                  Spoiler-Free: Which names have already been picked stays completely hidden so the
+                  organizer can join the draw too.
                 </p>
 
                 <form
@@ -519,26 +482,18 @@ export function AdminDialog({
                   </div>
                 </form>
 
-                {total === 0 ? (
+                {roster.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-white/[0.16] px-4 py-4 text-sm text-[#D8E2DC]/80">
-                    No names in the Christmas tin yet. Add at least 3 participants above.
+                    No names in the Christmas tin yet. Add participant names above.
                   </p>
                 ) : (
                   <ul className="divide-y divide-white/[0.08] rounded-2xl border border-white/[0.1] bg-white/[0.03]">
-                    {state.participants.map((p) => (
+                    {roster.map((p) => (
                       <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <span className="font-medium text-[#FFFDF9]">{p.name}</span>
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-[11px] ${
-                              isDrawing
-                                ? p.hasDrawn
-                                  ? 'bg-[#D99B26]/20 text-[#D99B26]'
-                                  : 'bg-white/[0.08] text-[#D8E2DC]'
-                                : 'bg-white/[0.08] text-[#D8E2DC]'
-                            }`}
-                          >
-                            {isDrawing ? (p.hasDrawn ? 'Pulled' : 'Waiting') : 'In Pack'}
+                          <span className="inline-flex items-center rounded-full bg-white/[0.08] px-2.5 py-0.5 font-mono text-[11px] text-[#D8E2DC]">
+                            In Pack
                           </span>
                         </div>
 

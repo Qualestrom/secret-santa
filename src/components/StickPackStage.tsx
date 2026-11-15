@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowsClockwise,
-  ArrowsLeftRight,
   Check,
   Eye,
   EyeSlash,
@@ -12,16 +11,71 @@ import {
 } from '@phosphor-icons/react';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ApiError, revealDrawMatch } from '../lib/api';
-import type { EventState, PublicParticipant } from '../types';
+import { ApiError, redrawSelfMatch, revealDrawMatch } from '../lib/api';
+import type { EventState, SavedDrawRecord } from '../types';
 import { ErrorMark } from './ErrorMark';
 import { HollySprig } from './ChristmasDecor';
 
+const LOCAL_DRAW_KEY = 'secret_santa_drawn_stick_v2';
+const LOCAL_CLAIM_KEY = 'secret_santa_claim_id_v2';
+
+function createRandomId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `claim_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getOrCreateClaimId(): string {
+  try {
+    const existing = localStorage.getItem(LOCAL_CLAIM_KEY);
+    if (existing && existing.length >= 8) return existing;
+    const fresh = createRandomId();
+    localStorage.setItem(LOCAL_CLAIM_KEY, fresh);
+    return fresh;
+  } catch {
+    return createRandomId();
+  }
+}
+
+function rotateClaimId(): string {
+  const fresh = createRandomId();
+  try {
+    localStorage.setItem(LOCAL_CLAIM_KEY, fresh);
+  } catch {
+    // Ignore storage quota errors
+  }
+  return fresh;
+}
+
+function readSavedDraw(): SavedDrawRecord | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_DRAW_KEY);
+    return raw ? (JSON.parse(raw) as SavedDrawRecord) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedDraw(record: SavedDrawRecord): void {
+  try {
+    localStorage.setItem(LOCAL_DRAW_KEY, JSON.stringify(record));
+  } catch {
+    // Ignore
+  }
+}
+
+function clearSavedDraw(): void {
+  try {
+    localStorage.removeItem(LOCAL_DRAW_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
 interface StickPackStageProps {
   state: EventState;
-  currentGuest: PublicParticipant | null;
-  onSelectGuest: (participant: PublicParticipant) => void;
-  onClearGuest: () => void;
+  resetSignal: number;
   onStateUpdate: (state: EventState) => void;
 }
 
@@ -35,54 +89,73 @@ function createJitterOffsets(count: number, seed: number): number[] {
 
 export function StickPackStage({
   state,
-  currentGuest,
-  onSelectGuest,
-  onClearGuest,
+  resetSignal,
   onStateUpdate,
 }: StickPackStageProps) {
   const prefersReducedMotion = useReducedMotion();
+  const [claimId, setClaimId] = useState<string>(() => getOrCreateClaimId());
+  const [savedDraw, setSavedDraw] = useState<SavedDrawRecord | null>(() => readSavedDraw());
   const [hoveredStick, setHoveredStick] = useState<number | null>(null);
   const [peekStick, setPeekStick] = useState<number | null>(null);
   const [pullingStick, setPullingStick] = useState<number | null>(null);
+  const [redrawing, setRedrawing] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [shuffleSeed, setShuffleSeed] = useState(1);
   const [drawError, setDrawError] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState<{
-    stickNumber: number;
-    giverName: string;
-    recipientName: string;
-  } | null>(null);
   const [hideMatchText, setHideMatchText] = useState(false);
 
-  const participants = state.participants;
-  const totalCount = participants.length;
-  const drawnCount = participants.filter((p) => p.hasDrawn).length;
-  const isDrawing = state.phase === 'DRAWING';
-  const stickCount = Math.min(Math.max(totalCount, 5), 12);
+  const totalCount = state.totalCount;
+  const remainingCount = state.remainingCount;
+  const isAllPicked = totalCount > 0 && remainingCount === 0;
+  const stickCount = totalCount === 0 ? 5 : Math.min(remainingCount, 12);
 
   const stickJitter = useMemo(
-    () => createJitterOffsets(stickCount, shuffleSeed),
+    () => createJitterOffsets(Math.max(stickCount, 1), shuffleSeed),
     [stickCount, shuffleSeed]
   );
 
-  // Subtle initial tin shake on load and clean state reset on guest/phase change
+  // Sync local saved draw if organizer resets the pack or rotates the round
   useEffect(() => {
-    setRevealed(null);
-    setDrawError(null);
-    setHideMatchText(false);
-    setPullingStick(null);
-    setHoveredStick(null);
+    if (
+      savedDraw &&
+      (state.totalCount === 0 || savedDraw.roundId !== state.roundId)
+    ) {
+      clearSavedDraw();
+      setSavedDraw(null);
+      setHideMatchText(false);
+      setDrawError(null);
+    }
+  }, [state.totalCount, state.roundId, savedDraw]);
 
-    if (!prefersReducedMotion) {
+  // Clear local state if organizer reset callback triggers
+  useEffect(() => {
+    if (resetSignal > 0) {
+      clearSavedDraw();
+      setSavedDraw(null);
+      setHideMatchText(false);
+      setDrawError(null);
+      setClaimId(rotateClaimId());
+    }
+  }, [resetSignal]);
+
+  // Playful entrance rattle on initial mount when sticks are present
+  useEffect(() => {
+    if (!prefersReducedMotion && !savedDraw && stickCount > 0) {
       setIsShaking(true);
-      const t = setTimeout(() => setIsShaking(false), 460);
+      const t = setTimeout(() => setIsShaking(false), 440);
       return () => clearTimeout(t);
     }
-  }, [currentGuest?.id, state.phase, prefersReducedMotion]);
+  }, [prefersReducedMotion, savedDraw, stickCount]);
 
-  // Periodic playful peek animation so sticks feel alive even while viewing firsthand
+  // Periodic playful peek so sticks feel alive inside the tin
   useEffect(() => {
-    if (prefersReducedMotion || revealed || pullingStick !== null || isShaking) {
+    if (
+      prefersReducedMotion ||
+      savedDraw ||
+      stickCount === 0 ||
+      pullingStick !== null ||
+      isShaking
+    ) {
       setPeekStick(null);
       return;
     }
@@ -92,27 +165,20 @@ export function StickPackStage({
       if (hoveredStick !== null) return;
       const next = Math.floor(Math.random() * stickCount);
       setPeekStick(next);
-      clearPeekTimer = setTimeout(() => setPeekStick(null), 900);
+      clearPeekTimer = setTimeout(() => setPeekStick(null), 850);
     }, 2400);
 
     return () => {
       clearInterval(interval);
       if (clearPeekTimer) clearTimeout(clearPeekTimer);
     };
-  }, [
-    prefersReducedMotion,
-    revealed,
-    pullingStick,
-    isShaking,
-    hoveredStick,
-    stickCount,
-  ]);
+  }, [prefersReducedMotion, savedDraw, stickCount, pullingStick, isShaking, hoveredStick]);
 
   const fireChristmasConfetti = () => {
     if (prefersReducedMotion) return;
     confetti({
-      particleCount: 68,
-      spread: 76,
+      particleCount: 65,
+      spread: 74,
       origin: { y: 0.56 },
       colors: ['#B91C1C', '#D99B26', '#1E5B3E', '#FFFDF9'],
       disableForReducedMotion: true,
@@ -127,7 +193,7 @@ export function StickPackStage({
     setShuffleSeed((s) => s + 1);
     setTimeout(() => {
       setIsShaking(false);
-    }, prefersReducedMotion ? 120 : 500);
+    }, prefersReducedMotion ? 120 : 480);
   };
 
   const handleShakeButtonClick = () => {
@@ -141,24 +207,13 @@ export function StickPackStage({
     if (totalCount === 0) {
       triggerTinShake();
       setDrawError(
-        "The organizer hasn't added the participant names yet! Once names are added, tap your name and pull a stick."
+        "No names in the pack yet — waiting for the organizer to add everyone's names."
       );
       return;
     }
 
-    if (totalCount < 3 || !isDrawing) {
-      triggerTinShake();
-      setDrawError(
-        `Waiting for the organizer to finish adding at least 3 participants (${totalCount}/3 in pack).`
-      );
-      return;
-    }
-
-    if (!currentGuest) {
-      triggerTinShake();
-      setDrawError(
-        'Please tap your name in the list above first so we know who is pulling this stick!'
-      );
+    if (remainingCount === 0) {
+      setDrawError('All sticks in the pack have already been picked!');
       return;
     }
 
@@ -168,16 +223,21 @@ export function StickPackStage({
 
     try {
       const [result] = await Promise.all([
-        revealDrawMatch(currentGuest.id),
-        new Promise((resolve) => setTimeout(resolve, prefersReducedMotion ? 180 : 560)),
+        revealDrawMatch(claimId),
+        new Promise((resolve) => setTimeout(resolve, prefersReducedMotion ? 180 : 520)),
       ]);
-      onStateUpdate(result.state);
-      setRevealed({
-        stickNumber: stickIndex + 1,
-        giverName: result.participantName,
+      const record: SavedDrawRecord = {
+        roundId: result.state.roundId,
+        claimId: result.claimId,
+        pickedId: result.pickedId,
         recipientName: result.assignedToName,
-      });
+        stickNumber: stickIndex + 1,
+      };
+      writeSavedDraw(record);
+      setClaimId(result.claimId);
+      setSavedDraw(record);
       setHideMatchText(false);
+      onStateUpdate(result.state);
       fireChristmasConfetti();
     } catch (err) {
       setDrawError(err instanceof ApiError ? err.message : 'Unable to pull a stick right now.');
@@ -186,155 +246,112 @@ export function StickPackStage({
     }
   };
 
-  // Spread & spacing tuned to sit cleanly inside the 248px cup mouth & 290px mobile card width
-  const spread = stickCount <= 1 ? 0 : Math.min(46, 22 + stickCount * 2.2);
-  const stepX = stickCount <= 1 ? 0 : Math.min(16, 72 / (stickCount - 1));
+  const handleRedrawSelf = async () => {
+    if (!savedDraw || redrawing) return;
+    setDrawError(null);
+    setRedrawing(true);
+    try {
+      const result = await redrawSelfMatch(savedDraw.claimId, savedDraw.pickedId);
+      const record: SavedDrawRecord = {
+        roundId: result.state.roundId,
+        claimId: result.claimId,
+        pickedId: result.pickedId,
+        recipientName: result.assignedToName,
+        stickNumber: savedDraw.stickNumber,
+      };
+      writeSavedDraw(record);
+      setSavedDraw(record);
+      setHideMatchText(false);
+      onStateUpdate(result.state);
+      fireChristmasConfetti();
+    } catch (err) {
+      setDrawError(err instanceof ApiError ? err.message : 'Unable to swap sticks right now.');
+    } finally {
+      setRedrawing(false);
+    }
+  };
+
+  const handleNextPersonSharedDevice = () => {
+    clearSavedDraw();
+    setSavedDraw(null);
+    setHideMatchText(false);
+    setDrawError(null);
+    setClaimId(rotateClaimId());
+  };
+
+  // Spread & spacing tuned to sit cleanly inside the 212px cup mouth across mobile and desktop
+  const spread = stickCount <= 1 ? 0 : Math.min(44, 20 + stickCount * 2.2);
+  const stepX = stickCount <= 1 ? 0 : Math.min(14, 62 / (stickCount - 1));
   const activeHintStick = pullingStick ?? hoveredStick ?? peekStick;
 
   return (
-    <div className="parchment-card mx-auto max-w-3xl rounded-[30px] bg-[#D99B26]/25 p-1.5 shadow-[0_28px_70px_-15px_rgba(0,0,0,0.55)]">
-      <div className="rounded-[24px] border border-[#D99B26]/35 bg-[#FFFDF9] p-6 text-[#1B2E24] sm:p-9">
-        {/* Top Banner */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E7DCCB] pb-4">
-          <div>
-            <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[#B91C1C]">
-              {currentGuest ? 'Drawing For' : 'Christmas Stick Pack'}
-            </span>
-            <p className="font-serif text-3xl leading-tight text-[#143D2B]">
-              {currentGuest ? currentGuest.name : state.eventName}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            {totalCount > 0 && (
-              <span className="rounded-full bg-[#143D2B]/[0.08] px-3 py-1 font-mono text-xs font-semibold text-[#143D2B]">
-                {isDrawing ? `${drawnCount} / ${totalCount} pulled` : `${totalCount} in pack`}
-              </span>
-            )}
-            {currentGuest && (
-              <button
-                type="button"
-                onClick={onClearGuest}
-                className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-[#D8CBB5] bg-[#F7EFE1] px-3.5 py-1.5 text-xs font-semibold text-[#1B2E24] transition-colors hover:border-[#B91C1C] hover:text-[#B91C1C]"
-              >
-                <ArrowsLeftRight size={14} weight="regular" aria-hidden="true" />
-                Switch Guest
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Participant Selector Bar Above Heading/Tin */}
-        {!revealed && (
-          <div className="mt-5">
-            {totalCount === 0 ? (
-              <div className="rounded-2xl border border-[#D99B26]/35 bg-[#F7EFE1]/85 px-4 py-3 text-center text-xs font-medium text-[#4E5F54]">
-                No participant names in the pack yet — the organizer will add everyone&apos;s names.
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-[#E7DCCB] bg-[#F7EFE1]/80 px-4 py-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#143D2B]">
-                    Step 1 · Tap Your Name
-                  </span>
-                  {totalCount < 3 ? (
-                    <span className="font-mono text-[11px] font-medium text-[#B91C1C]">
-                      Need {3 - totalCount} more name{3 - totalCount === 1 ? '' : 's'} to unlock draw
-                    </span>
-                  ) : currentGuest ? (
-                    <span className="font-mono text-[11px] font-medium text-[#1E5B3E]">
-                      Selected: {currentGuest.name}
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[11px] text-[#5F6F65]">
-                      Select yourself before pulling
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  {participants.map((p) => {
-                    const isSelected = currentGuest?.id === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => onSelectGuest(p)}
-                        className={`atelier-btn inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-[0.97] ${
-                          isSelected
-                            ? 'border-[#B91C1C] bg-[#B91C1C] text-[#FFFDF9] shadow-sm'
-                            : p.hasDrawn
-                              ? 'border-[#D8CBB5] bg-white/75 text-[#5F6F65] hover:border-[#D99B26] hover:text-[#143D2B]'
-                              : 'border-[#D99B26]/45 bg-white text-[#143D2B] shadow-2xs hover:border-[#B91C1C]'
-                        }`}
-                      >
-                        {p.hasDrawn && (
-                          <Check
-                            size={12}
-                            weight="bold"
-                            className={isSelected ? 'text-[#FFFDF9]' : 'text-[#1E5B3E]'}
-                            aria-hidden="true"
-                          />
-                        )}
-                        <span>{p.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
+    <div className="parchment-card w-full max-w-xl rounded-[28px] bg-[#D99B26]/25 p-1.5 shadow-[0_26px_64px_-15px_rgba(0,0,0,0.55)]">
+      <div className="rounded-[22px] border border-[#D99B26]/35 bg-[#FFFDF9] p-4 text-[#1B2E24] sm:p-6">
         <AnimatePresence mode="wait">
-          {!revealed ? (
+          {!savedDraw ? (
             <motion.div
               key="pack-stage"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
-              className="pt-6 text-center"
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+              className="text-center"
             >
-              <div className="mx-auto flex max-w-[46ch] flex-col items-center">
-                <HollySprig className="mb-1.5 h-7 w-20" />
-                <h1 className="font-serif text-4xl leading-none text-[#143D2B] sm:text-5xl">
-                  {currentGuest?.hasDrawn
-                    ? 'Peek at Your Stick Again'
-                    : 'Pick a Stick from the Pack'}
+              {/* Compact Editorial Header */}
+              <div className="mx-auto flex max-w-[44ch] flex-col items-center">
+                <HollySprig className="mb-1 h-5 w-16" />
+                <h1 className="font-serif text-3xl leading-none text-[#143D2B] sm:text-4xl">
+                  {isAllPicked ? 'All Sticks Drawn!' : 'Pick a Stick from the Pack'}
                 </h1>
-                <p className="mt-2.5 text-sm leading-relaxed text-[#4E5F54]">
+                <p className="mt-1.5 text-xs leading-snug text-[#4E5F54] sm:text-sm">
                   {totalCount === 0
-                    ? 'Give the wooden sticks a playful shake inside the Christmas tin while the organizer loads everyone into the pack.'
-                    : currentGuest?.hasDrawn
-                      ? 'You already pulled a stick earlier. Tap any stick below if you need a quick reminder of your Secret Santa match.'
-                      : 'Tap any wooden stick tucked inside the Christmas tin below to pull it out and reveal who you are gifting.'}
+                    ? 'Give the wooden sticks a playful shake while the organizer adds the names.'
+                    : isAllPicked
+                      ? 'Every name in the Christmas tin has been claimed with zero duplicates.'
+                      : 'Tap any wooden stick tucked inside the Christmas tin to reveal your Secret Santa match.'}
                 </p>
+
+                {/* Live Pool Counter Pill */}
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#143D2B]/[0.07] px-3 py-1 font-mono text-[11px] font-semibold text-[#143D2B]">
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      totalCount === 0
+                        ? 'bg-[#D99B26]'
+                        : remainingCount > 0
+                          ? 'bg-[#16A34A]'
+                          : 'bg-[#B91C1C]'
+                    }`}
+                  />
+                  {totalCount === 0
+                    ? 'Waiting for organizer to add names'
+                    : `${remainingCount} of ${totalCount} sticks left in tin`}
+                </div>
               </div>
 
               {drawError && (
                 <div
                   role="alert"
-                  className="mx-auto mt-4 flex max-w-md items-center justify-center gap-2 rounded-xl border border-[#B91C1C]/35 bg-[#FEE2E2] px-4 py-2.5 text-sm font-medium text-[#991B1B]"
+                  className="mx-auto mt-2.5 flex max-w-md items-center justify-center gap-2 rounded-xl border border-[#B91C1C]/35 bg-[#FEE2E2] px-3 py-2 text-xs font-medium text-[#991B1B]"
                 >
                   <ErrorMark />
                   <span>{drawError}</span>
                 </div>
               )}
 
-              {/* Dedicated 3-Layer Interactive Stick-in-Tin Stage */}
-              <div className="relative mx-auto mt-5 h-[316px] w-full max-w-[380px] select-none">
-                {/* Floating Prompt Pill Centered Clear Above Stick Tips */}
+              {/* Compact 3-Layer Stick-in-Tin Stage (Zero Scrolling on Desktop or Mobile) */}
+              <div className="relative mx-auto mt-2 h-[236px] w-full max-w-[330px] select-none">
+                {/* Floating Hover/Shake Prompt Pill Clear Above Stick Tips */}
                 <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex justify-center">
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 font-mono text-[11px] font-semibold transition-all duration-200 ${
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 font-mono text-[10px] font-semibold transition-all duration-200 ${
                       hoveredStick !== null || pullingStick !== null
-                        ? 'border-[#B91C1C]/35 bg-[#FEF2F2] text-[#B91C1C] shadow-sm'
+                        ? 'border-[#B91C1C]/35 bg-[#FEF2F2] text-[#B91C1C] shadow-xs'
                         : 'border-[#D99B26]/35 bg-[#F7EFE1]/90 text-[#5B3A1B]'
                     }`}
                   >
                     <Sparkle
-                      size={12}
+                      size={11}
                       weight="fill"
                       className={activeHintStick !== null ? 'text-[#B91C1C]' : 'text-[#D99B26]'}
                       aria-hidden="true"
@@ -345,14 +362,16 @@ export function StickPackStage({
                         ? `Tap to Pull Stick #${String(hoveredStick + 1).padStart(2, '0')}`
                         : isShaking
                           ? 'Shaking the Christmas Tin...'
-                          : 'Tap any stick or shake the tin'}
+                          : isAllPicked
+                            ? 'Pack Complete'
+                            : 'Tap a stick or shake the tin'}
                   </span>
                 </div>
 
                 {/* Warm Candlelight Glow Behind Tin */}
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute bottom-6 left-1/2 h-44 w-60 -translate-x-1/2 rounded-full bg-[#D99B26]/22 blur-2xl"
+                  className="pointer-events-none absolute bottom-4 left-1/2 h-36 w-52 -translate-x-1/2 rounded-full bg-[#D99B26]/22 blur-2xl"
                 />
 
                 {/* Animated Tin + Sticks Shake Wrapper */}
@@ -367,218 +386,214 @@ export function StickPackStage({
                       : pullingStick !== null && !prefersReducedMotion
                         ? {
                             rotate: [0, -2.5, 2.5, -1, 0],
-                            y: [0, 3, 0],
+                            y: [0, 2.5, 0],
                           }
                         : { rotate: 0, x: 0, y: 0 }
                   }
-                  transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+                  transition={{ duration: 0.44, ease: [0.23, 1, 0.32, 1] }}
                 >
                   {/* LAYER 1 (z-10): Tin Cup Back Rim & Deep Interior Shadow */}
                   <svg
-                    viewBox="0 0 248 136"
-                    className="pointer-events-none absolute bottom-0 left-1/2 z-10 h-[136px] w-[248px] -translate-x-1/2"
+                    viewBox="0 0 212 116"
+                    className="pointer-events-none absolute bottom-0 left-1/2 z-10 h-[116px] w-[212px] -translate-x-1/2"
                     fill="none"
                     aria-hidden="true"
                   >
                     <ellipse
-                      cx="124"
-                      cy="20"
-                      rx="90"
-                      ry="15"
+                      cx="106"
+                      cy="18"
+                      rx="76"
+                      ry="13"
                       fill="#3F0909"
                       stroke="#D99B26"
-                      strokeWidth="2.5"
+                      strokeWidth="2.2"
                     />
                     <ellipse
-                      cx="124"
-                      cy="21.5"
-                      rx="81"
-                      ry="11"
+                      cx="106"
+                      cy="19"
+                      rx="69"
+                      ry="9.5"
                       fill="#230404"
-                      fillOpacity="0.8"
+                      fillOpacity="0.82"
                     />
                   </svg>
 
-                  {/* LAYER 2 (z-20): Living Interactive Wooden Sticks Seated Inside the Cup */}
-                  <div className="absolute bottom-[44px] left-1/2 z-20">
-                    {Array.from({ length: stickCount }).map((_, idx) => {
-                      const ratio = stickCount === 1 ? 0.5 : idx / (stickCount - 1);
-                      const baseAngle = -spread / 2 + ratio * spread;
-                      const jitter = stickJitter[idx] ?? 0;
-                      const restAngle = isShaking ? baseAngle * 0.35 : baseAngle + jitter;
-                      const baseX = (idx - (stickCount - 1) / 2) * stepX;
+                  {/* LAYER 2 (z-20): Living Wooden Sticks Seated Inside the Cup */}
+                  {stickCount > 0 && (
+                    <div className="absolute bottom-[36px] left-1/2 z-20">
+                      {Array.from({ length: stickCount }).map((_, idx) => {
+                        const ratio = stickCount === 1 ? 0.5 : idx / (stickCount - 1);
+                        const baseAngle = stickCount === 1 ? -3 : -spread / 2 + ratio * spread;
+                        const jitter = stickJitter[idx] ?? 0;
+                        const restAngle = isShaking ? baseAngle * 0.35 : baseAngle + jitter;
+                        const baseX = (idx - (stickCount - 1) / 2) * stepX;
 
-                      const isHovered = hoveredStick === idx;
-                      const isPeeking = peekStick === idx && hoveredStick === null;
-                      const isPulling = pullingStick === idx;
-                      const anotherPulling = pullingStick !== null && !isPulling;
+                        const isHovered = hoveredStick === idx;
+                        const isPeeking = peekStick === idx && hoveredStick === null;
+                        const isPulling = pullingStick === idx;
+                        const anotherPulling = pullingStick !== null && !isPulling;
 
-                      // Subtle neighbor parting when cursor glides over the fan
-                      let neighborPushX = 0;
-                      let neighborPushRot = 0;
-                      if (hoveredStick !== null && hoveredStick !== idx && pullingStick === null) {
-                        const dir = idx < hoveredStick ? -1 : 1;
-                        const dist = Math.abs(idx - hoveredStick);
-                        const falloff = dist === 1 ? 1 : dist === 2 ? 0.5 : 0.2;
-                        neighborPushX = dir * 7 * falloff;
-                        neighborPushRot = dir * 2.5 * falloff;
-                      }
+                        let neighborPushX = 0;
+                        let neighborPushRot = 0;
+                        if (
+                          hoveredStick !== null &&
+                          hoveredStick !== idx &&
+                          pullingStick === null
+                        ) {
+                          const dir = idx < hoveredStick ? -1 : 1;
+                          const dist = Math.abs(idx - hoveredStick);
+                          const falloff = dist === 1 ? 1 : dist === 2 ? 0.5 : 0.2;
+                          neighborPushX = dir * 6 * falloff;
+                          neighborPushRot = dir * 2.4 * falloff;
+                        }
 
-                      const targetY = isPulling
-                        ? -84
-                        : anotherPulling
-                          ? 20
-                          : isHovered
-                            ? -28
-                            : isPeeking
-                              ? -13
-                              : isShaking
-                                ? -8
-                                : 0;
+                        const targetY = isPulling
+                          ? -74
+                          : anotherPulling
+                            ? 16
+                            : isHovered
+                              ? -24
+                              : isPeeking
+                                ? -11
+                                : isShaking
+                                  ? -6
+                                  : 0;
 
-                      const targetRotate = isPulling
-                        ? 0
-                        : restAngle +
-                          neighborPushRot +
-                          (isPeeking ? (idx % 2 === 0 ? -2.2 : 2.2) : 0);
+                        const targetRotate = isPulling
+                          ? 0
+                          : restAngle +
+                            neighborPushRot +
+                            (isPeeking ? (idx % 2 === 0 ? -2.2 : 2.2) : 0);
 
-                      const targetX = isPulling ? 0 : baseX + neighborPushX;
+                        const targetX = isPulling ? 0 : baseX + neighborPushX;
 
-                      return (
-                        <motion.button
-                          key={idx}
-                          type="button"
-                          disabled={pullingStick !== null}
-                          aria-label={`Pull stick ${idx + 1} from the pack`}
-                          onMouseEnter={() => setHoveredStick(idx)}
-                          onMouseLeave={() => setHoveredStick(null)}
-                          onFocus={() => setHoveredStick(idx)}
-                          onBlur={() => setHoveredStick(null)}
-                          onClick={() => handlePullStick(idx)}
-                          animate={{
-                            y: targetY,
-                            x: targetX,
-                            rotate: targetRotate,
-                            scale: isPulling ? 1.08 : isHovered ? 1.07 : isPeeking ? 1.03 : 1,
-                            opacity: anotherPulling ? 0.45 : 1,
-                          }}
-                          transition={{
-                            type: 'spring',
-                            stiffness: isPulling ? 220 : 300,
-                            damping: isPulling ? 18 : 19,
-                          }}
-                          style={{
-                            zIndex: isPulling ? 28 : isHovered ? 26 : 10 + idx,
-                          }}
-                          className="group absolute bottom-0 left-0 -ml-[18px] h-[176px] w-9 origin-bottom cursor-pointer rounded-t-full border border-[#8D643B]/55 bg-gradient-to-r from-[#D8AC7B] via-[#F4DEC0] to-[#C39363] shadow-[0_6px_14px_rgba(27,46,36,0.22)] transition-shadow duration-200 hover:shadow-[0_12px_24px_rgba(185,28,28,0.28)] focus-visible:outline-2 focus-visible:outline-[#B91C1C] disabled:cursor-wait"
-                        >
-                          {/* Subtle Ambient Breathing Wrapper */}
-                          <motion.div
-                            className="flex h-full w-full flex-col items-center overflow-hidden rounded-t-full"
-                            animate={
-                              !prefersReducedMotion &&
-                              !isHovered &&
-                              !isPulling &&
-                              !anotherPulling
-                                ? { y: [0, -3.5, 0] }
-                                : { y: 0 }
-                            }
-                            transition={
-                              !prefersReducedMotion &&
-                              !isHovered &&
-                              !isPulling &&
-                              !anotherPulling
-                                ? {
-                                    duration: 2.8 + (idx % 4) * 0.35,
-                                    delay: idx * 0.22,
-                                    repeat: Infinity,
-                                    ease: 'easeInOut',
-                                  }
-                                : { duration: 0.15 }
-                            }
+                        return (
+                          <motion.button
+                            key={idx}
+                            type="button"
+                            disabled={pullingStick !== null}
+                            aria-label={`Pull stick ${idx + 1} from the pack`}
+                            onMouseEnter={() => setHoveredStick(idx)}
+                            onMouseLeave={() => setHoveredStick(null)}
+                            onFocus={() => setHoveredStick(idx)}
+                            onBlur={() => setHoveredStick(null)}
+                            onClick={() => handlePullStick(idx)}
+                            animate={{
+                              y: targetY,
+                              x: targetX,
+                              rotate: targetRotate,
+                              scale: isPulling ? 1.08 : isHovered ? 1.06 : isPeeking ? 1.03 : 1,
+                              opacity: anotherPulling ? 0.45 : 1,
+                            }}
+                            transition={{
+                              type: 'spring',
+                              stiffness: isPulling ? 220 : 300,
+                              damping: isPulling ? 18 : 19,
+                            }}
+                            style={{
+                              zIndex: isPulling ? 28 : isHovered ? 26 : 10 + idx,
+                            }}
+                            className="group absolute bottom-0 left-0 -ml-4 h-[146px] w-8 origin-bottom cursor-pointer rounded-t-full border border-[#8D643B]/55 bg-gradient-to-r from-[#D8AC7B] via-[#F4DEC0] to-[#C39363] shadow-[0_5px_12px_rgba(27,46,36,0.22)] transition-shadow duration-200 hover:shadow-[0_10px_20px_rgba(185,28,28,0.28)] focus-visible:outline-2 focus-visible:outline-[#B91C1C] disabled:cursor-wait"
                           >
-                            {/* Glossy Painted Crimson Dip Tip */}
-                            <span className="relative h-7 w-full bg-gradient-to-b from-[#DC2626] via-[#C81E1E] to-[#991B1B]">
+                            {/* Non-colliding Ambient Breathing Wrapper */}
+                            <motion.div
+                              className="flex h-full w-full flex-col items-center overflow-hidden rounded-t-full"
+                              animate={
+                                !prefersReducedMotion &&
+                                !isHovered &&
+                                !isPulling &&
+                                !anotherPulling
+                                  ? { y: [0, -3, 0] }
+                                  : { y: 0 }
+                              }
+                              transition={
+                                !prefersReducedMotion &&
+                                !isHovered &&
+                                !isPulling &&
+                                !anotherPulling
+                                  ? {
+                                      duration: 2.8 + (idx % 4) * 0.35,
+                                      delay: idx * 0.22,
+                                      repeat: Infinity,
+                                      ease: 'easeInOut',
+                                    }
+                                  : { duration: 0.15 }
+                              }
+                            >
+                              <span className="relative h-6 w-full bg-gradient-to-b from-[#DC2626] via-[#C81E1E] to-[#991B1B]">
+                                <span
+                                  aria-hidden="true"
+                                  className="absolute inset-y-1 left-1 w-1 rounded-full bg-white/30"
+                                />
+                              </span>
+                              <span className="h-1 w-full bg-[#D99B26]" />
+                              <span className="mt-2 font-mono text-[9.5px] font-bold tracking-tight text-[#5F3C1C]">
+                                {String(idx + 1).padStart(2, '0')}
+                              </span>
+                              <Star
+                                size={10}
+                                weight="fill"
+                                className={`mt-1 transition-transform duration-200 ${
+                                  isHovered || isPeeking
+                                    ? 'scale-125 text-[#B91C1C]'
+                                    : 'text-[#B91C1C]/75'
+                                }`}
+                                aria-hidden="true"
+                              />
                               <span
                                 aria-hidden="true"
-                                className="absolute inset-y-1 left-1.5 w-1 rounded-full bg-white/30"
+                                className="mt-2.5 h-10 w-px rounded-full bg-[#8D643B]/20"
                               />
-                            </span>
-                            {/* Double Burnished Gold Collar */}
-                            <span className="h-1.5 w-full bg-[#D99B26]" />
-                            <span className="h-px w-full bg-[#7C5324]/45" />
+                            </motion.div>
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  )}
 
-                            {/* Stick Number */}
-                            <span className="mt-2.5 font-mono text-[10px] font-bold tracking-tight text-[#5F3C1C]">
-                              {String(idx + 1).padStart(2, '0')}
-                            </span>
-
-                            {/* Engraved Star Emblem */}
-                            <Star
-                              size={11}
-                              weight="fill"
-                              className={`mt-1 transition-transform duration-200 ${
-                                isHovered || isPeeking
-                                  ? 'scale-125 text-[#B91C1C]'
-                                  : 'text-[#B91C1C]/75'
-                              }`}
-                              aria-hidden="true"
-                            />
-
-                            {/* Subtle Wood Grain Vertical Line */}
-                            <span
-                              aria-hidden="true"
-                              className="mt-3 h-14 w-px rounded-full bg-[#8D643B]/20"
-                            />
-                          </motion.div>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-
-                  {/* LAYER 3 (z-30, pointer-events-none): Tin Cup Front Wall Covering Stick Bases */}
+                  {/* LAYER 3 (z-30, pointer-events-none): Tin Cup Front Wall */}
                   <svg
-                    viewBox="0 0 248 136"
-                    className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-[136px] w-[248px] -translate-x-1/2 drop-shadow-[0_18px_28px_rgba(15,41,30,0.3)]"
+                    viewBox="0 0 212 116"
+                    className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-[116px] w-[212px] -translate-x-1/2 drop-shadow-[0_14px_24px_rgba(15,41,30,0.28)]"
                     fill="none"
                     aria-hidden="true"
                   >
                     <path
-                      d="M34 20A90 15 0 0 0 214 20L194 116C192 126 162 132 124 132C86 132 56 126 54 116L34 20Z"
-                      fill="url(#packTinFrontBody)"
+                      d="M30 18A76 13 0 0 0 182 18L165 100C163 108 138 113 106 113C74 113 49 108 47 100L30 18Z"
+                      fill="url(#compactTinFrontGrad)"
                       stroke="#D99B26"
-                      strokeWidth="2.4"
+                      strokeWidth="2.2"
                     />
                     <path
-                      d="M34 20A90 15 0 0 0 214 20"
+                      d="M30 18A76 13 0 0 0 182 18"
                       stroke="#FDE68A"
                       strokeOpacity="0.72"
-                      strokeWidth="1.5"
+                      strokeWidth="1.3"
                       strokeLinecap="round"
                     />
                     <path
-                      d="M42 60C66 68 94 71 124 71C154 71 182 68 206 60L202 79C179 87 153 90 124 90C95 90 69 87 46 79L42 60Z"
+                      d="M37 52C57 59 81 61 106 61C131 61 155 59 175 52L172 68C153 75 130 77 106 77C82 77 59 75 40 68L37 52Z"
                       fill="#D99B26"
                     />
                     <circle
-                      cx="124"
-                      cy="74"
-                      r="18.5"
+                      cx="106"
+                      cy="64"
+                      r="15.5"
                       fill="#0F291E"
                       stroke="#FFFDF9"
-                      strokeWidth="2"
+                      strokeWidth="1.8"
                     />
                     <path
-                      d="M124 61L131.5 72.5H126.8L133.5 82H114.5L121.2 72.5H116.5L124 61Z"
+                      d="M106 53L112.5 63H108.5L114 71H98L103.5 63H99.5L106 53Z"
                       fill="#D99B26"
                     />
                     <defs>
                       <linearGradient
-                        id="packTinFrontBody"
-                        x1="34"
-                        y1="20"
-                        x2="214"
-                        y2="128"
+                        id="compactTinFrontGrad"
+                        x1="30"
+                        y1="18"
+                        x2="182"
+                        y2="110"
                         gradientUnits="userSpaceOnUse"
                       >
                         <stop stopColor="#DC2626" />
@@ -590,128 +605,145 @@ export function StickPackStage({
                 </motion.div>
               </div>
 
-              {/* Action Controls Below the Tin */}
-              <div className="mt-5 flex flex-col items-center gap-3">
-                <div className="flex flex-wrap items-center justify-center gap-3">
+              {/* Compact Action Controls Below the Tin */}
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2.5">
+                {!isAllPicked && (
                   <button
                     type="button"
                     disabled={pullingStick !== null || isShaking}
                     onClick={handleShakeButtonClick}
-                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-[#D8CBB5] bg-[#F7EFE1] px-4 py-2.5 text-xs font-semibold text-[#143D2B] transition-all duration-200 hover:border-[#D99B26] hover:bg-[#EFE2CB] active:scale-[0.97] disabled:opacity-60"
+                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-[#D8CBB5] bg-[#F7EFE1] px-4 py-2 text-xs font-semibold text-[#143D2B] transition-all duration-200 hover:border-[#D99B26] hover:bg-[#EFE2CB] active:scale-[0.97] disabled:opacity-60"
                   >
                     <ArrowsClockwise
-                      size={15}
+                      size={14}
                       weight="bold"
                       className={isShaking ? 'animate-spin' : ''}
                       aria-hidden="true"
                     />
                     <span>Shake Tin</span>
                   </button>
+                )}
 
+                {!isAllPicked && (
                   <button
                     type="button"
                     disabled={pullingStick !== null}
                     onClick={() => handlePullStick(Math.floor(Math.random() * stickCount))}
-                    className="atelier-btn group inline-flex items-center gap-3 rounded-full bg-[#B91C1C] py-2 pl-6 pr-2 text-sm font-semibold text-[#FFFDF9] shadow-[0_12px_28px_-8px_rgba(185,28,28,0.45)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#991B1B] active:scale-[0.98] disabled:opacity-60"
+                    className="atelier-btn group inline-flex items-center gap-2.5 rounded-full bg-[#B91C1C] py-1.5 pl-5 pr-1.5 text-xs font-semibold text-[#FFFDF9] shadow-[0_10px_24px_-8px_rgba(185,28,28,0.45)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#991B1B] active:scale-[0.98] disabled:opacity-60 sm:text-sm"
                   >
                     <span>
-                      {pullingStick !== null
-                        ? 'Pulling Your Stick...'
-                        : currentGuest?.hasDrawn
-                          ? 'Pull & Peek at My Match'
-                          : 'Pick a Random Stick for Me'}
+                      {pullingStick !== null ? 'Pulling Stick...' : 'Pick a Random Stick'}
                     </span>
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/20 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-translate-y-0.5">
-                      <HandPointing size={17} weight="regular" aria-hidden="true" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/20 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-translate-y-0.5">
+                      <HandPointing size={16} weight="regular" aria-hidden="true" />
                     </span>
                   </button>
-                </div>
-
-                <span className="font-mono text-[11px] text-[#6B7A70]">
-                  Tap any wooden stick inside the cup above or shake to mix
-                </span>
+                )}
               </div>
             </motion.div>
           ) : (
-            /* Revealed Keepsake Wooden Stick + Parchment Gift Tag */
+            /* Revealed Keepsake Wooden Stick + Compact Gift Tag (Zero Scroll) */
             <motion.div
               key="revealed-stick"
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 210, damping: 22 }}
-              className="pt-7 text-center"
+              className="py-1 text-center"
             >
               {/* Horizontal Wooden Keepsake Stick */}
-              <div className="mx-auto mb-5 flex max-w-md items-center overflow-hidden rounded-full border border-[#8D643B]/45 bg-gradient-to-r from-[#EED2AF] via-[#DFB78A] to-[#C89B6E] shadow-md">
-                <div className="flex h-10 w-16 shrink-0 items-center justify-center bg-[#B91C1C] font-mono text-xs font-bold text-[#FFFDF9]">
-                  #{String(revealed.stickNumber).padStart(2, '0')}
+              <div className="mx-auto mb-3.5 flex max-w-sm items-center overflow-hidden rounded-full border border-[#8D643B]/45 bg-gradient-to-r from-[#EED2AF] via-[#DFB78A] to-[#C89B6E] shadow-sm">
+                <div className="flex h-9 w-14 shrink-0 items-center justify-center bg-[#B91C1C] font-mono text-xs font-bold text-[#FFFDF9]">
+                  #{String(savedDraw.stickNumber).padStart(2, '0')}
                 </div>
-                <div className="h-10 w-2 shrink-0 bg-[#D99B26]" />
-                <div className="flex flex-1 items-center justify-center gap-2 px-4 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-[#5B3A1B]">
-                  <Sparkle size={14} weight="fill" className="text-[#B91C1C]" aria-hidden="true" />
-                  <span>Stick Drawn for {revealed.giverName}</span>
+                <div className="h-9 w-1.5 shrink-0 bg-[#D99B26]" />
+                <div className="flex flex-1 items-center justify-center gap-1.5 px-3 font-mono text-[11px] font-semibold uppercase tracking-[0.15em] text-[#5B3A1B]">
+                  <Sparkle size={12} weight="fill" className="text-[#B91C1C]" aria-hidden="true" />
+                  <span>Stick Claimed From Pack</span>
                 </div>
               </div>
 
-              {/* Tied Parchment Gift Tag */}
-              <div className="mx-auto max-w-lg rounded-3xl border-2 border-[#D99B26]/45 bg-[#F7EFE1] p-6 shadow-inner sm:p-8">
-                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#B91C1C] text-[#FFFDF9]">
-                  <Gift size={22} weight="light" aria-hidden="true" />
+              {drawError && (
+                <div
+                  role="alert"
+                  className="mx-auto mb-3 flex max-w-md items-center justify-center gap-2 rounded-xl border border-[#B91C1C]/35 bg-[#FEE2E2] px-3 py-2 text-xs font-medium text-[#991B1B]"
+                >
+                  <ErrorMark />
+                  <span>{drawError}</span>
                 </div>
-                <p className="text-sm font-medium text-[#4E5F54]">
+              )}
+
+              {/* Compact Parchment Gift Tag */}
+              <div className="mx-auto max-w-md rounded-3xl border-2 border-[#D99B26]/45 bg-[#F7EFE1] p-4 shadow-inner sm:p-6">
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#B91C1C] text-[#FFFDF9]">
+                  <Gift size={20} weight="light" aria-hidden="true" />
+                </div>
+                <p className="text-xs font-medium text-[#4E5F54] sm:text-sm">
                   You are Secret Santa for
                 </p>
 
-                <div className="my-4 rounded-2xl border border-[#D99B26]/35 bg-[#FFFDF9] px-5 py-6 shadow-sm">
+                <div className="my-3 rounded-2xl border border-[#D99B26]/35 bg-[#FFFDF9] px-4 py-4 shadow-xs sm:py-5">
                   {hideMatchText ? (
-                    <p className="font-mono text-sm uppercase tracking-[0.2em] text-[#6B7A70]">
+                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#6B7A70] sm:text-sm">
                       Hidden from screen
                     </p>
                   ) : (
-                    <p className="break-words font-serif text-4xl italic leading-tight text-[#B91C1C] sm:text-5xl">
-                      {revealed.recipientName}
+                    <p className="break-words font-serif text-3xl italic leading-tight text-[#B91C1C] sm:text-4xl">
+                      {savedDraw.recipientName}
                     </p>
                   )}
                 </div>
 
-                {state.budget.trim() && (
-                  <p className="mb-3 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[#143D2B]">
-                    Gift Guideline: {state.budget}
-                  </p>
-                )}
-
-                <p className="text-xs leading-relaxed text-[#5F6F65]">
-                  Keep it a Christmas secret! You can hide the name before locking your screen or
-                  switch guests if you are sharing this device.
+                <p className="text-[11px] leading-snug text-[#5F6F65]">
+                  This name has been locked to your draw and removed from the pack so nobody else
+                  can pick the same person.
                 </p>
 
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={() => setHideMatchText((v) => !v)}
-                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-[#D8CBB5] bg-[#FFFDF9] px-5 py-2.5 text-xs font-semibold text-[#143D2B] transition-colors hover:border-[#143D2B]"
+                    className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-[#D8CBB5] bg-[#FFFDF9] px-4 py-2 text-xs font-semibold text-[#143D2B] transition-colors hover:border-[#143D2B]"
                   >
                     {hideMatchText ? (
                       <>
-                        <Eye size={15} weight="regular" aria-hidden="true" />
-                        Peek at Name
+                        <Eye size={14} weight="regular" aria-hidden="true" />
+                        Peek
                       </>
                     ) : (
                       <>
-                        <EyeSlash size={15} weight="regular" aria-hidden="true" />
+                        <EyeSlash size={14} weight="regular" aria-hidden="true" />
                         Hide Name
                       </>
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={onClearGuest}
-                    className="atelier-btn inline-flex items-center gap-2 rounded-full bg-[#143D2B] px-5 py-2.5 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-[#0F291E]"
-                  >
-                    <Check size={15} weight="bold" aria-hidden="true" />
-                    Done / Switch Guest
-                  </button>
+                  {remainingCount > 0 && (
+                    <button
+                      type="button"
+                      disabled={redrawing}
+                      onClick={handleRedrawSelf}
+                      className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-[#B91C1C]/40 bg-[#FFFDF9] px-4 py-2 text-xs font-semibold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50"
+                    >
+                      <ArrowsClockwise
+                        size={14}
+                        weight="bold"
+                        className={redrawing ? 'animate-spin' : ''}
+                        aria-hidden="true"
+                      />
+                      {redrawing ? 'Swapping...' : 'Picked Myself? Redraw'}
+                    </button>
+                  )}
+
+                  {remainingCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleNextPersonSharedDevice}
+                      className="atelier-btn inline-flex items-center gap-1.5 rounded-full bg-[#143D2B] px-4 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-[#0F291E]"
+                    >
+                      <Check size={14} weight="bold" aria-hidden="true" />
+                      Next Person
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>

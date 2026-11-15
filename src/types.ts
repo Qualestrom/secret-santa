@@ -3,7 +3,6 @@ export type EventPhase = 'REGISTRATION' | 'DRAWING';
 export interface PublicParticipant {
   id: string;
   name: string;
-  hasDrawn: boolean;
   joinedAt: string;
 }
 
@@ -11,18 +10,25 @@ export interface EventState {
   eventName: string;
   budget: string;
   phase: EventPhase;
-  participants: PublicParticipant[];
+  roundId: string;
+  totalCount: number;
+  remainingCount: number;
+  participants?: PublicParticipant[];
   updatedAt: string;
   storageMode: 'vercel-storage' | 'local-dev';
 }
 
 export interface DrawRevealResult {
-  participantName: string;
+  pickedId: string;
   assignedToName: string;
+  claimId: string;
   state: EventState;
 }
 
-export interface SavedParticipantRecord {
-  participantId: string;
-  name: string;
+export interface SavedDrawRecord {
+  roundId: string;
+  claimId: string;
+  pickedId: string;
+  recipientName: string;
+  stickNumber: number;
 }

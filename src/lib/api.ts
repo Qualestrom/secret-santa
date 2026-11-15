@@ -34,15 +34,38 @@ export async function postEventAction<T extends Record<string, unknown>>(
   return data as T & { ok: boolean; state: EventState };
 }
 
-export async function revealDrawMatch(participantId: string): Promise<DrawRevealResult> {
+export async function revealDrawMatch(
+  claimId: string,
+  forceNew = false
+): Promise<DrawRevealResult> {
   const data = await postEventAction<{
-    participantName: string;
+    pickedId: string;
     assignedToName: string;
-  }>('draw', { participantId });
+    claimId: string;
+  }>('draw', { claimId, forceNew });
 
   return {
-    participantName: data.participantName,
+    pickedId: data.pickedId,
     assignedToName: data.assignedToName,
+    claimId: data.claimId,
+    state: data.state,
+  };
+}
+
+export async function redrawSelfMatch(
+  claimId: string,
+  pickedId: string
+): Promise<DrawRevealResult> {
+  const data = await postEventAction<{
+    pickedId: string;
+    assignedToName: string;
+    claimId: string;
+  }>('redraw_self', { claimId, pickedId });
+
+  return {
+    pickedId: data.pickedId,
+    assignedToName: data.assignedToName,
+    claimId: data.claimId,
     state: data.state,
   };
 }

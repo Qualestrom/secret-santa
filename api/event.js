@@ -4,7 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 const REDIS_KEY = 'secret_santa_event_v1';
+const REDIS_LOCK_KEY = 'secret_santa_lock_v1';
 export const LOCAL_STATE_FILE = path.join(os.tmpdir(), 'secret-santa-dev-state.json');
+
+let localLockTail = Promise.resolve();
 
 function getRedisConfig() {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -15,12 +18,79 @@ function getRedisConfig() {
   return null;
 }
 
+async function redisCommand(redis, commandArgs) {
+  const response = await fetch(redis.url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${redis.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(commandArgs),
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Vercel Storage command failed (${response.status}): ${text}`);
+  }
+  return response.json();
+}
+
+function withLocalLock(fn) {
+  const next = localLockTail.then(() => fn());
+  localLockTail = next.catch(() => {});
+  return next;
+}
+
+async function withRedisLock(redis, fn) {
+  if (!redis) return fn();
+  const token = crypto.randomUUID();
+  const deadline = Date.now() + 3500;
+  let acquired = false;
+
+  while (Date.now() < deadline) {
+    const res = await redisCommand(redis, ['SET', REDIS_LOCK_KEY, token, 'NX', 'PX', 5000]);
+    if (res && res.result === 'OK') {
+      acquired = true;
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 35 + crypto.randomInt(0, 35)));
+  }
+
+  if (!acquired) {
+    const err = new Error('Someone else is pulling a stick right now. Please tap again!');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  try {
+    return await fn();
+  } finally {
+    try {
+      await redisCommand(redis, [
+        'EVAL',
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+        1,
+        REDIS_LOCK_KEY,
+        token,
+      ]);
+    } catch (unlockErr) {
+      console.warn('[api/event] Lock release skipped:', unlockErr);
+    }
+  }
+}
+
+function withStateLock(fn) {
+  const redis = getRedisConfig();
+  return withLocalLock(() => withRedisLock(redis, fn));
+}
+
 function createDefaultState() {
   const envAdminPin = process.env.DEFAULT_ADMIN_PIN;
   return {
     eventName: 'Christmas Secret Santa',
     budget: '$25 Limit',
     phase: 'REGISTRATION',
+    roundId: crypto.randomUUID(),
     adminPin: envAdminPin && /^\d{4}$/.test(envAdminPin) ? envAdminPin : '1234',
     participants: [],
     updatedAt: new Date().toISOString(),
@@ -32,18 +102,30 @@ function normalizeState(raw) {
   if (!raw || typeof raw !== 'object') {
     return base;
   }
+  const participants = Array.isArray(raw.participants)
+    ? raw.participants.map((p) => ({
+        id: typeof p.id === 'string' ? p.id : `p_${crypto.randomUUID()}`,
+        name: typeof p.name === 'string' ? p.name : 'Guest',
+        hasDrawn: Boolean(p.hasDrawn),
+        claimedBy: typeof p.claimedBy === 'string' ? p.claimedBy : null,
+        drawnAt: typeof p.drawnAt === 'string' ? p.drawnAt : null,
+        joinedAt: typeof p.joinedAt === 'string' ? p.joinedAt : base.updatedAt,
+      }))
+    : [];
+
   return {
     eventName:
       typeof raw.eventName === 'string' && raw.eventName.trim()
         ? raw.eventName.trim()
         : base.eventName,
     budget: typeof raw.budget === 'string' ? raw.budget : base.budget,
-    phase: raw.phase === 'DRAWING' ? 'DRAWING' : 'REGISTRATION',
+    phase: participants.length > 0 ? 'DRAWING' : 'REGISTRATION',
+    roundId: typeof raw.roundId === 'string' && raw.roundId ? raw.roundId : base.roundId,
     adminPin:
       typeof raw.adminPin === 'string' && /^\d{4}$/.test(raw.adminPin)
         ? raw.adminPin
         : base.adminPin,
-    participants: Array.isArray(raw.participants) ? raw.participants : [],
+    participants,
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : base.updatedAt,
   };
 }
@@ -85,6 +167,7 @@ async function getEventState() {
 }
 
 async function saveEventState(state) {
+  state.phase = state.participants.length > 0 ? 'DRAWING' : 'REGISTRATION';
   state.updatedAt = new Date().toISOString();
   const redis = getRedisConfig();
 
@@ -109,45 +192,31 @@ async function saveEventState(state) {
   return 'local-dev';
 }
 
-export function sanitizeState(state, storageMode) {
-  return {
+export function sanitizeState(state, storageMode, includeRoster = false) {
+  const totalCount = state.participants.length;
+  const remainingCount = state.participants.filter((p) => !p.hasDrawn).length;
+
+  const base = {
     eventName: state.eventName,
     budget: state.budget || '',
-    phase: state.phase,
-    participants: state.participants.map((p) => ({
-      id: p.id,
-      name: p.name,
-      hasDrawn: Boolean(p.hasDrawn),
-      joinedAt: p.joinedAt,
-    })),
+    phase: totalCount > 0 ? 'DRAWING' : 'REGISTRATION',
+    roundId: state.roundId,
+    totalCount,
+    remainingCount,
     updatedAt: state.updatedAt,
     storageMode,
   };
-}
 
-export function generateSingleCycleDerangement(participants) {
-  if (!Array.isArray(participants) || participants.length < 3) {
-    throw new Error('At least 3 participants are required to draw names.');
+  if (includeRoster) {
+    // Organizer sees participant names only (never who has been picked or by whom)
+    base.participants = state.participants.map((p) => ({
+      id: p.id,
+      name: p.name,
+      joinedAt: p.joinedAt,
+    }));
   }
 
-  const shuffled = participants.map((p) => ({ ...p }));
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(0, i + 1);
-    const tmp = shuffled[i];
-    shuffled[i] = shuffled[j];
-    shuffled[j] = tmp;
-  }
-
-  const byId = new Map();
-  for (let i = 0; i < shuffled.length; i++) {
-    const giver = shuffled[i];
-    const receiver = shuffled[(i + 1) % shuffled.length];
-    giver.assignedToId = receiver.id;
-    giver.hasDrawn = false;
-    byId.set(giver.id, giver);
-  }
-
-  return participants.map((p) => byId.get(p.id));
+  return base;
 }
 
 function validateName(rawName, existingParticipants) {
@@ -204,25 +273,11 @@ function verifyAdmin(body, state) {
   return provided === state.adminPin;
 }
 
-function syncPhaseAndPairings(state) {
-  if (state.participants.length >= 3) {
-    state.participants = generateSingleCycleDerangement(state.participants);
-    state.phase = 'DRAWING';
-  } else {
-    state.phase = 'REGISTRATION';
-    state.participants = state.participants.map((p) => ({
-      ...p,
-      assignedToId: null,
-      hasDrawn: false,
-    }));
-  }
-}
-
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { state, storageMode } = await getEventState();
-      return sendJson(res, 200, { ok: true, state: sanitizeState(state, storageMode) });
+      return sendJson(res, 200, { ok: true, state: sanitizeState(state, storageMode, false) });
     }
 
     if (req.method !== 'POST') {
@@ -238,253 +293,293 @@ export default async function handler(req, res) {
     }
 
     const action = typeof body.action === 'string' ? body.action.trim() : '';
-    const { state, storageMode } = await getEventState();
 
-    switch (action) {
-      case 'register': {
-        if (state.phase !== 'REGISTRATION') {
-          return sendJson(res, 409, {
-            error: 'Registration is locked because the stick draw has already started.',
-          });
-        }
-        const nameCheck = validateName(body.name, state.participants);
-        if (nameCheck.error) return sendJson(res, nameCheck.status || 400, { error: nameCheck.error });
-
-        const optionalPin =
-          body.pin && /^\d{4}$/.test(String(body.pin).trim()) ? String(body.pin).trim() : null;
-
-        const participant = {
-          id: `p_${crypto.randomUUID()}`,
-          name: nameCheck.cleanName,
-          pin: optionalPin,
-          assignedToId: null,
-          hasDrawn: false,
-          joinedAt: new Date().toISOString(),
-        };
-        state.participants.push(participant);
-        const savedMode = await saveEventState(state);
-
-        return sendJson(res, 200, {
-          ok: true,
-          participantId: participant.id,
-          state: sanitizeState(state, savedMode || storageMode),
-        });
+    // Read-only admin verification doesn't require the write lock
+    if (action === 'admin_verify') {
+      const { state, storageMode } = await getEventState();
+      if (!verifyAdmin(body, state)) {
+        return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
       }
-
-      case 'draw': {
-        if (state.phase !== 'DRAWING') {
-          return sendJson(res, 409, {
-            error: 'The stick draw has not started yet. Ask the organizer to activate it.',
-          });
-        }
-        const participant = state.participants.find((p) => p.id === body.participantId);
-        if (!participant) {
-          return sendJson(res, 404, { error: 'Participant not found.' });
-        }
-
-        const recipient = state.participants.find((p) => p.id === participant.assignedToId);
-        if (!recipient) {
-          return sendJson(res, 500, {
-            error: 'Match assignment is missing. Please ask the organizer to re-shuffle.',
-          });
-        }
-
-        let currentMode = storageMode;
-        if (!participant.hasDrawn) {
-          participant.hasDrawn = true;
-          currentMode = await saveEventState(state);
-        }
-
-        return sendJson(res, 200, {
-          ok: true,
-          participantName: participant.name,
-          assignedToName: recipient.name,
-          state: sanitizeState(state, currentMode),
-        });
-      }
-
-      case 'admin_verify': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-        return sendJson(res, 200, { ok: true, state: sanitizeState(state, storageMode) });
-      }
-
-      case 'admin_start_draw': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-        if (state.phase === 'DRAWING') {
-          return sendJson(res, 409, {
-            error: 'Draw is already open. Use Re-shuffle if you want new pairings.',
-          });
-        }
-        if (state.participants.length < 3) {
-          return sendJson(res, 400, {
-            error:
-              'At least 3 participants are required so nobody gets paired in a predictable 2-person loop.',
-          });
-        }
-        state.participants = generateSingleCycleDerangement(state.participants);
-        state.phase = 'DRAWING';
-        const savedMode = await saveEventState(state);
-        return sendJson(res, 200, { ok: true, state: sanitizeState(state, savedMode) });
-      }
-
-      case 'admin_remove_participant': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-        const beforeCount = state.participants.length;
-        state.participants = state.participants.filter((p) => p.id !== body.participantId);
-        if (state.participants.length === beforeCount) {
-          return sendJson(res, 404, { error: 'Participant not found.' });
-        }
-        syncPhaseAndPairings(state);
-        const savedMode = await saveEventState(state);
-        return sendJson(res, 200, { ok: true, state: sanitizeState(state, savedMode) });
-      }
-
-      case 'admin_add_participant': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-
-        const rawInput = typeof body.name === 'string' ? body.name : '';
-        const tokens = rawInput
-          .split(/[\r\n,]+/)
-          .map((t) => t.trim().replace(/\s+/g, ' '))
-          .filter(Boolean);
-
-        if (tokens.length === 0) {
-          return sendJson(res, 400, { error: 'Please enter at least one participant name.' });
-        }
-
-        const pendingParticipants = [...state.participants];
-        const newParticipants = [];
-        const optionalPin =
-          body.pin && /^\d{4}$/.test(String(body.pin).trim()) ? String(body.pin).trim() : null;
-
-        for (const token of tokens) {
-          const nameCheck = validateName(token, pendingParticipants);
-          if (nameCheck.error) {
-            return sendJson(res, nameCheck.status || 400, { error: nameCheck.error });
-          }
-          const participant = {
-            id: `p_${crypto.randomUUID()}`,
-            name: nameCheck.cleanName,
-            pin: optionalPin,
-            assignedToId: null,
-            hasDrawn: false,
-            joinedAt: new Date().toISOString(),
-          };
-          pendingParticipants.push(participant);
-          newParticipants.push(participant);
-        }
-
-        state.participants.push(...newParticipants);
-        syncPhaseAndPairings(state);
-        const savedMode = await saveEventState(state);
-        return sendJson(res, 200, {
-          ok: true,
-          addedCount: newParticipants.length,
-          participantId: newParticipants[0].id,
-          participantIds: newParticipants.map((p) => p.id),
-          state: sanitizeState(state, savedMode),
-        });
-      }
-
-      case 'admin_reset_pin': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-        const participant = state.participants.find((p) => p.id === body.participantId);
-        if (!participant) {
-          return sendJson(res, 404, { error: 'Participant not found.' });
-        }
-        const pinCheck = validatePin(body.newPin);
-        if (pinCheck.error) return sendJson(res, 400, { error: pinCheck.error });
-
-        participant.pin = pinCheck.cleanPin;
-        const savedMode = await saveEventState(state);
-        return sendJson(res, 200, { ok: true, state: sanitizeState(state, savedMode) });
-      }
-
-      case 'admin_reshuffle': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-        if (state.phase !== 'DRAWING') {
-          return sendJson(res, 409, { error: 'Start the draw before re-shuffling.' });
-        }
-        if (state.participants.length < 3) {
-          return sendJson(res, 400, { error: 'At least 3 participants are required.' });
-        }
-        state.participants = generateSingleCycleDerangement(state.participants);
-        const savedMode = await saveEventState(state);
-        return sendJson(res, 200, { ok: true, state: sanitizeState(state, savedMode) });
-      }
-
-      case 'admin_reopen_registration': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-        state.phase = 'REGISTRATION';
-        state.participants = state.participants.map((p) => ({
-          ...p,
-          assignedToId: null,
-          hasDrawn: false,
-        }));
-        const savedMode = await saveEventState(state);
-        return sendJson(res, 200, { ok: true, state: sanitizeState(state, savedMode) });
-      }
-
-      case 'admin_update_settings': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-        if (typeof body.eventName === 'string') {
-          const cleanTitle = body.eventName.trim().replace(/\s+/g, ' ');
-          if (cleanTitle.length < 2 || cleanTitle.length > 60) {
-            return sendJson(res, 400, { error: 'Event name must be between 2 and 60 characters.' });
-          }
-          state.eventName = cleanTitle;
-        }
-        if (typeof body.budget === 'string') {
-          const cleanBudget = body.budget.trim().replace(/\s+/g, ' ');
-          if (cleanBudget.length > 40) {
-            return sendJson(res, 400, { error: 'Budget / note must be 40 characters or less.' });
-          }
-          state.budget = cleanBudget;
-        }
-        if (body.newAdminPin !== undefined && String(body.newAdminPin).trim() !== '') {
-          const pinCheck = validatePin(body.newAdminPin);
-          if (pinCheck.error) return sendJson(res, 400, { error: `New Organizer ${pinCheck.error}` });
-          state.adminPin = pinCheck.cleanPin;
-        }
-        const savedMode = await saveEventState(state);
-        return sendJson(res, 200, {
-          ok: true,
-          adminPinUpdated: Boolean(body.newAdminPin && String(body.newAdminPin).trim() !== ''),
-          state: sanitizeState(state, savedMode),
-        });
-      }
-
-      case 'admin_reset_all': {
-        if (!verifyAdmin(body, state)) {
-          return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
-        }
-        state.participants = [];
-        state.phase = 'REGISTRATION';
-        const savedMode = await saveEventState(state);
-        return sendJson(res, 200, { ok: true, state: sanitizeState(state, savedMode) });
-      }
-
-      default:
-        return sendJson(res, 400, { error: 'Unknown action.' });
+      return sendJson(res, 200, { ok: true, state: sanitizeState(state, storageMode, true) });
     }
+
+    // All state-changing actions run strictly inside the atomic state lock
+    const result = await withStateLock(async () => {
+      const { state, storageMode } = await getEventState();
+
+      switch (action) {
+        case 'draw': {
+          if (state.participants.length === 0) {
+            return {
+              status: 409,
+              payload: {
+                error:
+                  'The pack is empty — waiting for the organizer to add the participant names.',
+              },
+            };
+          }
+
+          const claimId =
+            typeof body.claimId === 'string' && body.claimId.trim().length >= 8
+              ? body.claimId.trim()
+              : crypto.randomUUID();
+
+          // Idempotency: return same claimed stick if this device retries the same request
+          if (body.forceNew !== true) {
+            const existing = state.participants.find(
+              (p) => p.hasDrawn && p.claimedBy === claimId
+            );
+            if (existing) {
+              return {
+                status: 200,
+                payload: {
+                  ok: true,
+                  pickedId: existing.id,
+                  assignedToName: existing.name,
+                  claimId,
+                  state: sanitizeState(state, storageMode, false),
+                },
+              };
+            }
+          }
+
+          const available = state.participants.filter((p) => !p.hasDrawn);
+          if (available.length === 0) {
+            return {
+              status: 409,
+              payload: { error: 'All sticks in the pack have already been picked!' },
+            };
+          }
+
+          const chosen = available[crypto.randomInt(0, available.length)];
+          chosen.hasDrawn = true;
+          chosen.claimedBy = claimId;
+          chosen.drawnAt = new Date().toISOString();
+
+          const savedMode = await saveEventState(state);
+          return {
+            status: 200,
+            payload: {
+              ok: true,
+              pickedId: chosen.id,
+              assignedToName: chosen.name,
+              claimId,
+              state: sanitizeState(state, savedMode, false),
+            },
+          };
+        }
+
+        case 'redraw_self': {
+          const claimId = typeof body.claimId === 'string' ? body.claimId.trim() : '';
+          const pickedId = typeof body.pickedId === 'string' ? body.pickedId.trim() : '';
+
+          const currentPicked = state.participants.find(
+            (p) => p.id === pickedId && p.hasDrawn && (!claimId || p.claimedBy === claimId)
+          );
+          if (!currentPicked) {
+            return {
+              status: 409,
+              payload: {
+                error: 'That stick is no longer active. Please pull a stick from the tin.',
+              },
+            };
+          }
+
+          const otherAvailable = state.participants.filter(
+            (p) => !p.hasDrawn && p.id !== currentPicked.id
+          );
+          if (otherAvailable.length === 0) {
+            return {
+              status: 409,
+              payload: {
+                error: 'No other unpicked sticks are left in the tin to swap with.',
+              },
+            };
+          }
+
+          const newClaimId = claimId || crypto.randomUUID();
+          const replacement = otherAvailable[crypto.randomInt(0, otherAvailable.length)];
+
+          replacement.hasDrawn = true;
+          replacement.claimedBy = newClaimId;
+          replacement.drawnAt = new Date().toISOString();
+
+          currentPicked.hasDrawn = false;
+          currentPicked.claimedBy = null;
+          currentPicked.drawnAt = null;
+
+          const savedMode = await saveEventState(state);
+          return {
+            status: 200,
+            payload: {
+              ok: true,
+              pickedId: replacement.id,
+              assignedToName: replacement.name,
+              claimId: newClaimId,
+              state: sanitizeState(state, savedMode, false),
+            },
+          };
+        }
+
+        case 'admin_add_participant': {
+          if (!verifyAdmin(body, state)) {
+            return { status: 403, payload: { error: 'Incorrect Organizer PIN.' } };
+          }
+
+          const rawInput = typeof body.name === 'string' ? body.name : '';
+          const tokens = rawInput
+            .split(/[\r\n,]+/)
+            .map((t) => t.trim().replace(/\s+/g, ' '))
+            .filter(Boolean);
+
+          if (tokens.length === 0) {
+            return {
+              status: 400,
+              payload: { error: 'Please enter at least one participant name.' },
+            };
+          }
+
+          const pendingParticipants = [...state.participants];
+          const newParticipants = [];
+
+          for (const token of tokens) {
+            const nameCheck = validateName(token, pendingParticipants);
+            if (nameCheck.error) {
+              return { status: nameCheck.status || 400, payload: { error: nameCheck.error } };
+            }
+            const participant = {
+              id: `p_${crypto.randomUUID()}`,
+              name: nameCheck.cleanName,
+              hasDrawn: false,
+              claimedBy: null,
+              drawnAt: null,
+              joinedAt: new Date().toISOString(),
+            };
+            pendingParticipants.push(participant);
+            newParticipants.push(participant);
+          }
+
+          state.participants.push(...newParticipants);
+          const savedMode = await saveEventState(state);
+          return {
+            status: 200,
+            payload: {
+              ok: true,
+              addedCount: newParticipants.length,
+              participantId: newParticipants[0].id,
+              participantIds: newParticipants.map((p) => p.id),
+              state: sanitizeState(state, savedMode, true),
+            },
+          };
+        }
+
+        case 'admin_remove_participant': {
+          if (!verifyAdmin(body, state)) {
+            return { status: 403, payload: { error: 'Incorrect Organizer PIN.' } };
+          }
+          const target = state.participants.find((p) => p.id === body.participantId);
+          if (!target) {
+            return { status: 404, payload: { error: 'Participant not found.' } };
+          }
+          state.participants = state.participants.filter((p) => p.id !== body.participantId);
+          const savedMode = await saveEventState(state);
+          return {
+            status: 200,
+            payload: { ok: true, state: sanitizeState(state, savedMode, true) },
+          };
+        }
+
+        case 'admin_reshuffle': {
+          if (!verifyAdmin(body, state)) {
+            return { status: 403, payload: { error: 'Incorrect Organizer PIN.' } };
+          }
+          if (state.participants.length === 0) {
+            return {
+              status: 400,
+              payload: { error: 'Add participant names before returning sticks to the tin.' },
+            };
+          }
+          state.roundId = crypto.randomUUID();
+          state.participants = state.participants.map((p) => ({
+            ...p,
+            hasDrawn: false,
+            claimedBy: null,
+            drawnAt: null,
+          }));
+          const savedMode = await saveEventState(state);
+          return {
+            status: 200,
+            payload: { ok: true, state: sanitizeState(state, savedMode, true) },
+          };
+        }
+
+        case 'admin_update_settings': {
+          if (!verifyAdmin(body, state)) {
+            return { status: 403, payload: { error: 'Incorrect Organizer PIN.' } };
+          }
+          if (typeof body.eventName === 'string') {
+            const cleanTitle = body.eventName.trim().replace(/\s+/g, ' ');
+            if (cleanTitle.length < 2 || cleanTitle.length > 60) {
+              return {
+                status: 400,
+                payload: { error: 'Event name must be between 2 and 60 characters.' },
+              };
+            }
+            state.eventName = cleanTitle;
+          }
+          if (typeof body.budget === 'string') {
+            const cleanBudget = body.budget.trim().replace(/\s+/g, ' ');
+            if (cleanBudget.length > 40) {
+              return {
+                status: 400,
+                payload: { error: 'Budget / note must be 40 characters or less.' },
+              };
+            }
+            state.budget = cleanBudget;
+          }
+          if (body.newAdminPin !== undefined && String(body.newAdminPin).trim() !== '') {
+            const pinCheck = validatePin(body.newAdminPin);
+            if (pinCheck.error) {
+              return { status: 400, payload: { error: `New Organizer ${pinCheck.error}` } };
+            }
+            state.adminPin = pinCheck.cleanPin;
+          }
+          const savedMode = await saveEventState(state);
+          return {
+            status: 200,
+            payload: {
+              ok: true,
+              adminPinUpdated: Boolean(body.newAdminPin && String(body.newAdminPin).trim() !== ''),
+              state: sanitizeState(state, savedMode, true),
+            },
+          };
+        }
+
+        case 'admin_reset_all': {
+          if (!verifyAdmin(body, state)) {
+            return { status: 403, payload: { error: 'Incorrect Organizer PIN.' } };
+          }
+          state.roundId = crypto.randomUUID();
+          state.participants = [];
+          state.phase = 'REGISTRATION';
+          const savedMode = await saveEventState(state);
+          return {
+            status: 200,
+            payload: { ok: true, state: sanitizeState(state, savedMode, true) },
+          };
+        }
+
+        default:
+          return { status: 400, payload: { error: 'Unknown action.' } };
+      }
+    });
+
+    return sendJson(res, result.status, result.payload);
   } catch (err) {
     console.error('[api/event] Error:', err);
-    return sendJson(res, 500, { error: 'Server error. Please try again.' });
+    const status = err && typeof err.statusCode === 'number' ? err.statusCode : 500;
+    return sendJson(res, status, {
+      error: status === 503 ? err.message : 'Server error. Please try again.',
+    });
   }
 }

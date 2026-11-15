@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { AdminDialog } from './components/AdminDialog';
 import { SnowfallLayer } from './components/ChristmasDecor';
 import { StickPackStage } from './components/StickPackStage';
@@ -9,6 +10,7 @@ import type { EventState } from './types';
 const POLL_INTERVAL_MS = 3000;
 
 export default function App() {
+  const prefersReducedMotion = useReducedMotion();
   const [state, setState] = useState<EventState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [resetSignal, setResetSignal] = useState(0);
@@ -52,7 +54,9 @@ export default function App() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'a' && e.shiftKey && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        setAdminOpen(true);
+        setAdminOpen((v) => !v);
+      } else if (e.key === 'Escape') {
+        setAdminOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -104,7 +108,7 @@ export default function App() {
     secretTapsRef.current = recent;
     if (recent.length >= 5) {
       secretTapsRef.current = [];
-      setAdminOpen(true);
+      setAdminOpen((v) => !v);
     }
   };
 
@@ -113,7 +117,7 @@ export default function App() {
   };
 
   return (
-    <div className="relative flex h-[100dvh] max-h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-[#07162C] px-3 py-2 text-[#F8FAFC] sm:px-6 sm:py-4">
+    <div className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-x-hidden overflow-y-auto bg-[#07162C] px-3 py-3 text-[#F8FAFC] sm:px-6 sm:py-4 lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       {/* Deep Midnight Blue & Turquoise Ambient Glow */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-44 left-1/2 h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-[#14B8A6]/[0.15] blur-[140px]" />
@@ -153,8 +157,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main Centered Single-Screen Stage */}
-      <main className="relative z-20 flex w-full max-w-2xl shrink-0 items-center justify-center">
+      {/* Main Centered / Side-by-Side Responsive Stage */}
+      <main className="relative z-20 flex w-full max-w-6xl shrink-0 flex-col items-center justify-center gap-4 lg:flex-row lg:items-stretch lg:gap-5">
         {!state && !loadError ? (
           <div className="w-full max-w-xl rounded-[28px] bg-white/[0.05] p-6">
             <div className="mx-auto mb-3 h-7 w-32 animate-pulse rounded-full bg-white/[0.1]" />
@@ -167,23 +171,47 @@ export default function App() {
             <p className="mt-1 opacity-90">{loadError}</p>
           </div>
         ) : state ? (
-          <StickPackStage
-            state={state}
-            resetSignal={resetSignal}
-            onStateUpdate={applyNewState}
-          />
+          <>
+            <motion.div
+              layout={!prefersReducedMotion}
+              transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+              className="flex w-full max-w-xl shrink-0 items-center justify-center lg:w-[470px] xl:w-[560px]"
+            >
+              <StickPackStage
+                state={state}
+                resetSignal={resetSignal}
+                onStateUpdate={applyNewState}
+              />
+            </motion.div>
+
+            <AnimatePresence mode="popLayout">
+              {adminOpen && (
+                <motion.div
+                  key="admin-companion-panel"
+                  layout={!prefersReducedMotion}
+                  initial={
+                    prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: 32, scale: 0.96 }
+                  }
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={
+                    prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 32, scale: 0.96 }
+                  }
+                  transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                  className="flex w-full max-w-xl shrink-0 justify-center lg:w-[440px] xl:w-[480px]"
+                >
+                  <AdminDialog
+                    open={adminOpen}
+                    state={state}
+                    onClose={() => setAdminOpen(false)}
+                    onStateUpdate={applyNewState}
+                    onEventReset={handleEventReset}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
         ) : null}
       </main>
-
-      {state && (
-        <AdminDialog
-          open={adminOpen}
-          state={state}
-          onClose={() => setAdminOpen(false)}
-          onStateUpdate={applyNewState}
-          onEventReset={handleEventReset}
-        />
-      )}
     </div>
   );
 }

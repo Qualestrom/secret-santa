@@ -181,30 +181,43 @@ button:focus-visible {
   }
 }
 
-/* Modern Web Guidance: Native Modal <dialog> top-layer containment */
-dialog.atelier-dialog {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #F8FAFC;
-  margin: auto;
-  width: min(94vw, 660px);
-  max-height: 90dvh;
-  overflow: visible;
+/* Modern Web Guidance: Accessible Tab Indicator & Custom Scrollbar */
+.atelier-tab {
+  position: relative;
 }
 
-dialog.atelier-dialog:modal {
-  overscroll-behavior: contain;
+.atelier-tab[aria-selected='true'] {
+  color: #f8fafc;
+  background-color: rgba(15, 118, 110, 0.85);
 }
 
-dialog.atelier-dialog::backdrop {
-  overflow: hidden;
-  overscroll-behavior: contain;
-  background-color: rgba(4, 12, 26, 0.82);
-  backdrop-filter: blur(8px);
+.atelier-tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0.5rem 0;
+  border-block-end: 2.5px solid #2dd4bf;
 }
 
-.atelier-dialog-scroll {
-  max-height: 90dvh;
-  overflow-y: auto;
+.admin-roster-scroll {
+  --scrollbar-thumb: #2dd4bf;
+  --scrollbar-track: #07162c;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@supports not (scrollbar-color: auto) {
+  .admin-roster-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .admin-roster-scroll::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+
+  .admin-roster-scroll::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 9999px;
+  }
 }

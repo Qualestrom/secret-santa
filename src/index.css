@@ -56,10 +56,29 @@ body {
   will-change: transform, opacity;
 }
 
+@keyframes stick-idle-sway {
+  0%,
+  100% {
+    transform: translateY(0px) rotate(var(--stick-rot, 0deg));
+  }
+  50% {
+    transform: translateY(-4px) rotate(calc(var(--stick-rot, 0deg) + var(--stick-sway, 1.4deg)));
+  }
+}
+
+.stick-sway {
+  animation: stick-idle-sway var(--sway-dur, 3.6s) ease-in-out infinite;
+  animation-delay: var(--sway-delay, 0s);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .snowflake-particle {
     animation: none;
     display: none;
+  }
+
+  .stick-sway {
+    animation: none;
   }
 }
 

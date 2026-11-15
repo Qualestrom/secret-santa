@@ -75,63 +75,113 @@ export function HollySprig({ className = '' }: { className?: string }) {
 }
 
 export function WaitingStickCup({ stickCount }: { stickCount: number }) {
-  const visibleSticks = Math.min(Math.max(stickCount, 1), 10);
-  const angles = [-22, -16, -11, -6, -2, 3, 8, 13, 18, 24];
+  const visibleSticks = Math.min(Math.max(stickCount, 0), 10);
+  const spread = visibleSticks <= 1 ? 0 : Math.min(44, (visibleSticks - 1) * 7.5);
 
   return (
-    <div className="relative mx-auto flex h-48 w-52 items-end justify-center select-none" aria-hidden="true">
+    <div
+      className="relative mx-auto h-48 w-56 select-none"
+      aria-hidden="true"
+    >
       {/* Warm golden glow behind cup */}
-      <div className="absolute bottom-4 h-28 w-28 rounded-full bg-[#D99B26]/20 blur-2xl" />
+      <div className="pointer-events-none absolute bottom-4 left-1/2 h-28 w-36 -translate-x-1/2 rounded-full bg-[#D99B26]/20 blur-2xl" />
 
-      {/* Fanning wooden sticks inside waiting tin */}
-      <div className="relative bottom-[74px] flex items-end justify-center">
+      {/* Layer 1 (Back): Tin Cup Dark Interior & Back Rim */}
+      <svg
+        viewBox="0 0 180 112"
+        className="pointer-events-none absolute bottom-0 left-1/2 z-10 h-[112px] w-[180px] -translate-x-1/2"
+        fill="none"
+      >
+        <ellipse
+          cx="90"
+          cy="16"
+          rx="68"
+          ry="12"
+          fill="#3E0909"
+          stroke="#D99B26"
+          strokeWidth="2.2"
+        />
+        <ellipse
+          cx="90"
+          cy="17"
+          rx="61"
+          ry="8.5"
+          fill="#260505"
+          fillOpacity="0.65"
+        />
+      </svg>
+
+      {/* Layer 2 (Middle): Fanned Wooden Sticks Seated Inside the Cup */}
+      <div className="pointer-events-none absolute bottom-[34px] left-1/2 z-20">
         {Array.from({ length: visibleSticks }).map((_, idx) => {
-          const angle = angles[idx % angles.length];
-          const offsetX = (idx - (visibleSticks - 1) / 2) * 8;
+          const t = visibleSticks === 1 ? 0.5 : idx / (visibleSticks - 1);
+          const angle = visibleSticks === 1 ? -4 : -spread / 2 + t * spread;
+          const offsetX =
+            visibleSticks === 1 ? 0 : (idx - (visibleSticks - 1) / 2) * 7;
+
           return (
             <div
               key={idx}
-              className="absolute bottom-0 h-28 w-3.5 origin-bottom rounded-t-full border border-[#8D643B]/40 bg-gradient-to-b from-[#EED2AF] via-[#DFB78A] to-[#C89B6E] shadow-sm transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
-              style={{
-                transform: `translateX(${offsetX}px) rotate(${angle}deg)`,
-              }}
+              className="absolute bottom-0 left-0"
+              style={{ transform: `translateX(${offsetX}px)` }}
             >
-              {/* Crimson & Gold Tip */}
-              <div className="h-4 w-full rounded-t-full bg-[#B91C1C]" />
-              <div className="h-1 w-full bg-[#D99B26]" />
+              <div
+                className="stick-sway -ml-2 h-[116px] w-4 origin-bottom overflow-hidden rounded-t-full border border-[#8D643B]/45 bg-gradient-to-r from-[#DFB78A] via-[#F2D9BA] to-[#C89B6E] shadow-sm"
+                style={
+                  {
+                    '--stick-rot': `${angle}deg`,
+                    '--stick-sway': `${idx % 2 === 0 ? 1.6 : -1.6}deg`,
+                    '--sway-dur': `${3.2 + (idx % 4) * 0.45}s`,
+                    '--sway-delay': `${-(idx * 0.55)}s`,
+                    transform: `rotate(${angle}deg)`,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="h-4 w-full bg-gradient-to-b from-[#DC2626] to-[#B91C1C]" />
+                <div className="h-1 w-full bg-[#D99B26]" />
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* Festive Holiday Cup / Tin */}
+      {/* Layer 3 (Front): Tin Cup Front Wall Covering Lower Stick Stems */}
       <svg
         viewBox="0 0 180 112"
-        className="relative z-10 h-28 w-44 drop-shadow-[0_14px_24px_rgba(0,0,0,0.35)]"
+        className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-[112px] w-[180px] -translate-x-1/2 drop-shadow-[0_14px_24px_rgba(15,41,30,0.28)]"
         fill="none"
       >
-        {/* Cup Rim */}
-        <ellipse cx="90" cy="14" rx="68" ry="12" fill="#7F1D1D" stroke="#D99B26" strokeWidth="2.2" />
-        {/* Cup Body */}
         <path
-          d="M24 16L36 96C37.5 104 61 110 90 110C119 110 142.5 104 144 96L156 16C146 23 120 26 90 26C60 26 34 23 24 16Z"
-          fill="url(#cupGrad)"
+          d="M22 16A68 12 0 0 0 158 16L144 96C142.5 104 119 110 90 110C61 110 37.5 104 36 96L22 16Z"
+          fill="url(#waitingCupFrontGrad)"
           stroke="#D99B26"
-          strokeWidth="2"
+          strokeWidth="2.1"
+        />
+        {/* Highlighted Front Gold Lip */}
+        <path
+          d="M22 16A68 12 0 0 0 158 16"
+          stroke="#FDE68A"
+          strokeOpacity="0.65"
+          strokeWidth="1.2"
+          strokeLinecap="round"
         />
         {/* Decorative Gold Band */}
         <path
-          d="M29 48C46 55 67 57 90 57C113 57 134 55 151 48L149 62C133 69 112 71 90 71C68 71 47 69 31 62L29 48Z"
+          d="M28 50C47 57 68 59 90 59C112 59 133 57 152 50L150 64C132 71 111 73 90 73C69 73 48 71 30 64L28 50Z"
           fill="#D99B26"
         />
-        {/* Center Pine Emblem */}
-        <circle cx="90" cy="56" r="13" fill="#0F291E" stroke="#FFFDF9" strokeWidth="1.5" />
-        <path
-          d="M90 47L95 55H92L96.5 61H83.5L88 55H85L90 47Z"
-          fill="#D99B26"
-        />
+        {/* Center Evergreen Emblem */}
+        <circle cx="90" cy="60" r="13.5" fill="#0F291E" stroke="#FFFDF9" strokeWidth="1.6" />
+        <path d="M90 50.5L95.5 59H92.2L96.8 65.5H83.2L87.8 59H84.5L90 50.5Z" fill="#D99B26" />
         <defs>
-          <linearGradient id="cupGrad" x1="24" y1="16" x2="156" y2="108" gradientUnits="userSpaceOnUse">
+          <linearGradient
+            id="waitingCupFrontGrad"
+            x1="22"
+            y1="16"
+            x2="158"
+            y2="108"
+            gradientUnits="userSpaceOnUse"
+          >
             <stop stopColor="#DC2626" />
             <stop offset="0.52" stopColor="#B91C1C" />
             <stop offset="1" stopColor="#7F1D1D" />

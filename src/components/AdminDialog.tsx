@@ -139,18 +139,19 @@ export function AdminDialog({
     }
   };
 
-  const runAdminAction = async (
+  const runAdminAction = async <T extends Record<string, unknown> = Record<string, never>>(
     actionKey: string,
     payload: Record<string, unknown>,
-    successMessage: string
+    successMessage: string | ((res: T & { ok: boolean; state: EventState }) => string)
   ) => {
     if (!activeAdminPin) return false;
     setFeedback(null);
     setBusyAction(actionKey);
     try {
-      const res = await postEventAction(actionKey, { adminPin: activeAdminPin, ...payload });
+      const res = await postEventAction<T>(actionKey, { adminPin: activeAdminPin, ...payload });
       onStateUpdate(res.state);
-      setFeedback({ text: successMessage, isError: false });
+      const message = typeof successMessage === 'function' ? successMessage(res) : successMessage;
+      setFeedback({ text: message, isError: false });
       return true;
     } catch (err) {
       setFeedback({
@@ -166,10 +167,16 @@ export function AdminDialog({
   const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmed = addName.trim();
-    const ok = await runAdminAction(
+    const ok = await runAdminAction<{ addedCount?: number }>(
       'admin_add_participant',
       { name: trimmed },
-      `Added ${trimmed} to the Christmas list.`
+      (res) => {
+        const count = res.addedCount ?? 1;
+        const label = count > 1 ? `${count} participants` : trimmed;
+        return res.state.phase === 'DRAWING'
+          ? `Added ${label} — stick draw is live and freshly shuffled!`
+          : `Added ${label} to the Christmas pack.`;
+      }
     );
     if (ok) {
       setAddName('');
@@ -368,8 +375,8 @@ export function AdminDialog({
                   <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] p-4">
                     <p className="mb-4 text-sm text-[#D8E2DC]">
                       {total >= 3
-                        ? `${total} participants in the pack. Activate the draw when everyone's name is in!`
-                        : `Need at least 3 participants before starting (${total} joined so far).`}
+                        ? `${total} names loaded in the tin. Activate the stick draw when everyone is ready to pick!`
+                        : `Add at least 3 participant names below before starting (${total} added so far).`}
                     </p>
                     <button
                       type="button"
@@ -378,7 +385,7 @@ export function AdminDialog({
                         runAdminAction(
                           'admin_start_draw',
                           {},
-                          'Stick draw activated! Guests can now pick a stick from the pack.'
+                          'Stick draw activated! Guests can now tap their name and pick a stick.'
                         )
                       }
                       className="atelier-btn group flex w-full items-center justify-between rounded-full bg-[#B91C1C] py-2 pl-5 pr-2 text-sm font-semibold text-[#FFFDF9] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#991B1B] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
@@ -386,7 +393,7 @@ export function AdminDialog({
                       <span>
                         {busyAction === 'admin_start_draw'
                           ? 'Shuffling Sticks...'
-                          : 'Activate Stick Draw (Lock Names & Shuffle)'}
+                          : 'Activate Stick Draw (Lock List & Shuffle)'}
                       </span>
                       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/20">
                         <ArrowUpRight size={16} weight="regular" aria-hidden="true" />
@@ -430,13 +437,13 @@ export function AdminDialog({
                           runAdminAction(
                             'admin_reopen_registration',
                             {},
-                            'Name entry re-opened! Previous pairings cleared.'
+                            'Draw paused! You can edit the participant list now.'
                           )
                         }
                         className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.16] bg-white/[0.06] px-4 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.12] active:scale-[0.98]"
                       >
                         <LockOpen size={14} weight="regular" aria-hidden="true" />
-                        Re-open Name Entry
+                        Pause Draw &amp; Edit Names
                       </button>
                     </div>
                   </div>
@@ -455,12 +462,66 @@ export function AdminDialog({
                   Participant List (Spoiler-Free)
                 </h3>
                 <p className="mb-3 text-xs text-[#D8E2DC]/80">
-                  See who has entered the pack or pulled their stick without spoiling matches.
+                  Spoiler-Free: Pairings are completely hidden from this console so the organizer can
+                  join the draw too. Adding 3 or more names activates the stick draw automatically.
                 </p>
+
+                <form
+                  ref={addFormRef}
+                  method="POST"
+                  action="/api/event"
+                  aria-labelledby="admin-add-heading"
+                  onSubmit={handleAddSubmit}
+                  className="mb-4 rounded-2xl border border-white/[0.12] bg-white/[0.04] p-4"
+                >
+                  <h4 id="admin-add-heading" className="mb-2.5 text-sm font-semibold text-[#FFFDF9]">
+                    Add Participant Names
+                  </h4>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="admin-add-name" className="text-xs font-medium text-[#FFFDF9]">
+                      Single Name or Comma-Separated List{' '}
+                      <span className="text-[#FCA5A5]" aria-hidden="true">*</span>
+                    </label>
+                    <span id="admin-add-name-hint" className="text-[11px] text-[#D8E2DC]/75">
+                      Enter a single name, or multiple names separated by commas
+                    </span>
+                    <div className="flex flex-wrap items-start gap-2.5">
+                      <div className="min-w-[180px] flex-1">
+                        <input
+                          id="admin-add-name"
+                          name="name"
+                          type="text"
+                          minLength={2}
+                          maxLength={240}
+                          required
+                          autoComplete="off"
+                          value={addName}
+                          onChange={(e) => setAddName(e.target.value)}
+                          aria-describedby="admin-add-name-hint"
+                          data-error="admin-add-name-error"
+                          placeholder="e.g. Layla, Omar, Nadia, Tariq"
+                          className="atelier-input"
+                        />
+                        <div id="admin-add-name-error" className="error-msg">
+                          <ErrorMark />
+                          <span>Enter at least one name (2–40 characters each).</span>
+                        </div>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={busyAction === 'admin_add_participant'}
+                        className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-white/[0.16] bg-white/[0.1] px-5 py-3 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.18]"
+                      >
+                        <Plus size={14} weight="bold" aria-hidden="true" />
+                        {busyAction === 'admin_add_participant' ? 'Adding...' : 'Add to Pack'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
 
                 {total === 0 ? (
                   <p className="rounded-xl border border-dashed border-white/[0.16] px-4 py-4 text-sm text-[#D8E2DC]/80">
-                    No names entered yet.
+                    No names in the Christmas tin yet. Add at least 3 participants above.
                   </p>
                 ) : (
                   <ul className="divide-y divide-white/[0.08] rounded-2xl border border-white/[0.1] bg-white/[0.03]">
@@ -481,79 +542,23 @@ export function AdminDialog({
                           </span>
                         </div>
 
-                        {!isDrawing && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              runAdminAction(
-                                'admin_remove_participant',
-                                { participantId: p.id },
-                                `Removed ${p.name} from the pack.`
-                              )
-                            }
-                            className="atelier-btn inline-flex items-center gap-1 rounded-full border border-[#B91C1C]/50 bg-[#B91C1C]/15 px-3 py-1 text-xs font-medium text-[#FCA5A5] transition-colors hover:bg-[#B91C1C]/30"
-                          >
-                            <UserMinus size={13} weight="regular" aria-hidden="true" />
-                            Remove
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            runAdminAction(
+                              'admin_remove_participant',
+                              { participantId: p.id },
+                              `Removed ${p.name} from the pack.`
+                            )
+                          }
+                          className="atelier-btn inline-flex items-center gap-1 rounded-full border border-[#B91C1C]/50 bg-[#B91C1C]/15 px-3 py-1 text-xs font-medium text-[#FCA5A5] transition-colors hover:bg-[#B91C1C]/30"
+                        >
+                          <UserMinus size={13} weight="regular" aria-hidden="true" />
+                          Remove
+                        </button>
                       </li>
                     ))}
                   </ul>
-                )}
-
-                {!isDrawing && (
-                  <form
-                    ref={addFormRef}
-                    method="POST"
-                    action="/api/event"
-                    aria-labelledby="admin-add-heading"
-                    onSubmit={handleAddSubmit}
-                    className="mt-4 rounded-2xl border border-white/[0.1] bg-white/[0.03] p-4"
-                  >
-                    <h4 id="admin-add-heading" className="mb-3 text-sm font-semibold text-[#FFFDF9]">
-                      Add Participant Manually
-                    </h4>
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="admin-add-name" className="text-xs font-medium text-[#FFFDF9]">
-                        Participant Name <span className="text-[#FCA5A5]" aria-hidden="true">*</span>
-                      </label>
-                      <span id="admin-add-name-hint" className="text-[11px] text-[#D8E2DC]/75">
-                        2–40 characters
-                      </span>
-                      <div className="flex flex-wrap items-start gap-2.5">
-                        <div className="min-w-[180px] flex-1">
-                          <input
-                            id="admin-add-name"
-                            name="name"
-                            type="text"
-                            minLength={2}
-                            maxLength={40}
-                            required
-                            autoComplete="off"
-                            value={addName}
-                            onChange={(e) => setAddName(e.target.value)}
-                            aria-describedby="admin-add-name-hint"
-                            data-error="admin-add-name-error"
-                            placeholder="Enter guest name"
-                            className="atelier-input"
-                          />
-                          <div id="admin-add-name-error" className="error-msg">
-                            <ErrorMark />
-                            <span>Enter 2–40 characters.</span>
-                          </div>
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={busyAction === 'admin_add_participant'}
-                          className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-white/[0.16] bg-white/[0.08] px-5 py-3 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.15]"
-                        >
-                          <Plus size={14} weight="bold" aria-hidden="true" />
-                          Add Name
-                        </button>
-                      </div>
-                    </div>
-                  </form>
                 )}
               </section>
 

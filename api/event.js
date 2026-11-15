@@ -160,7 +160,7 @@ function validateName(rawName, existingParticipants) {
   );
   if (duplicate) {
     return {
-      error: `"${cleanName}" has already joined. Please add a last initial or nickname.`,
+      error: `"${cleanName}" is already in the pack. Please use a unique name or nickname.`,
       status: 409,
     };
   }
@@ -202,6 +202,20 @@ function verifyAdmin(body, state) {
   const provided =
     typeof body.adminPin === 'string' ? body.adminPin.trim() : String(body.adminPin || '').trim();
   return provided === state.adminPin;
+}
+
+function syncPhaseAndPairings(state) {
+  if (state.participants.length >= 3) {
+    state.participants = generateSingleCycleDerangement(state.participants);
+    state.phase = 'DRAWING';
+  } else {
+    state.phase = 'REGISTRATION';
+    state.participants = state.participants.map((p) => ({
+      ...p,
+      assignedToId: null,
+      hasDrawn: false,
+    }));
+  }
 }
 
 export default async function handler(req, res) {
@@ -321,14 +335,12 @@ export default async function handler(req, res) {
         if (!verifyAdmin(body, state)) {
           return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
         }
-        if (state.phase !== 'REGISTRATION') {
-          return sendJson(res, 409, { error: 'Re-open registration before removing participants.' });
-        }
         const beforeCount = state.participants.length;
         state.participants = state.participants.filter((p) => p.id !== body.participantId);
         if (state.participants.length === beforeCount) {
           return sendJson(res, 404, { error: 'Participant not found.' });
         }
+        syncPhaseAndPairings(state);
         const savedMode = await saveEventState(state);
         return sendJson(res, 200, { ok: true, state: sanitizeState(state, savedMode) });
       }
@@ -337,28 +349,47 @@ export default async function handler(req, res) {
         if (!verifyAdmin(body, state)) {
           return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
         }
-        if (state.phase !== 'REGISTRATION') {
-          return sendJson(res, 409, { error: 'Re-open name entry before adding participants.' });
-        }
-        const nameCheck = validateName(body.name, state.participants);
-        if (nameCheck.error) return sendJson(res, nameCheck.status || 400, { error: nameCheck.error });
 
+        const rawInput = typeof body.name === 'string' ? body.name : '';
+        const tokens = rawInput
+          .split(/[\r\n,]+/)
+          .map((t) => t.trim().replace(/\s+/g, ' '))
+          .filter(Boolean);
+
+        if (tokens.length === 0) {
+          return sendJson(res, 400, { error: 'Please enter at least one participant name.' });
+        }
+
+        const pendingParticipants = [...state.participants];
+        const newParticipants = [];
         const optionalPin =
           body.pin && /^\d{4}$/.test(String(body.pin).trim()) ? String(body.pin).trim() : null;
 
-        const participant = {
-          id: `p_${crypto.randomUUID()}`,
-          name: nameCheck.cleanName,
-          pin: optionalPin,
-          assignedToId: null,
-          hasDrawn: false,
-          joinedAt: new Date().toISOString(),
-        };
-        state.participants.push(participant);
+        for (const token of tokens) {
+          const nameCheck = validateName(token, pendingParticipants);
+          if (nameCheck.error) {
+            return sendJson(res, nameCheck.status || 400, { error: nameCheck.error });
+          }
+          const participant = {
+            id: `p_${crypto.randomUUID()}`,
+            name: nameCheck.cleanName,
+            pin: optionalPin,
+            assignedToId: null,
+            hasDrawn: false,
+            joinedAt: new Date().toISOString(),
+          };
+          pendingParticipants.push(participant);
+          newParticipants.push(participant);
+        }
+
+        state.participants.push(...newParticipants);
+        syncPhaseAndPairings(state);
         const savedMode = await saveEventState(state);
         return sendJson(res, 200, {
           ok: true,
-          participantId: participant.id,
+          addedCount: newParticipants.length,
+          participantId: newParticipants[0].id,
+          participantIds: newParticipants.map((p) => p.id),
           state: sanitizeState(state, savedMode),
         });
       }

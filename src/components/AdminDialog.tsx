@@ -3,7 +3,6 @@ import {
   ArrowsClockwise,
   ArrowUpRight,
   Check,
-  Key,
   Lock,
   LockOpen,
   Plus,
@@ -50,13 +49,8 @@ export function AdminDialog({
   const [feedback, setFeedback] = useState<{ text: string; isError: boolean } | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
-  // Inline PIN reset
-  const [pinResetTargetId, setPinResetTargetId] = useState<string | null>(null);
-  const [pinResetValue, setPinResetValue] = useState('');
-
-  // Manual participant add
+  // Manual participant add (Name only)
   const [addName, setAddName] = useState('');
-  const [addPin, setAddPin] = useState('');
 
   // Event settings
   const [settingsTitle, setSettingsTitle] = useState(state.eventName);
@@ -83,8 +77,6 @@ export function AdminDialog({
       setLoginPin('');
       setLoginError(null);
       setFeedback(null);
-      setPinResetTargetId(null);
-      setPinResetValue('');
       setConfirmReset(false);
       resetFormValidationState(loginFormRef.current);
       onClose();
@@ -126,7 +118,7 @@ export function AdminDialog({
         ?.querySelectorAll('input')
         .forEach((el) => syncElementAria(el, false));
     });
-  }, [open, activeAdminPin, pinResetTargetId, state.phase]);
+  }, [open, activeAdminPin, state.phase]);
 
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -173,32 +165,15 @@ export function AdminDialog({
 
   const handleAddSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const trimmed = addName.trim();
     const ok = await runAdminAction(
       'admin_add_participant',
-      { name: addName.trim(), pin: addPin.trim() },
-      `Added ${addName.trim()} to the guest ledger.`
+      { name: trimmed },
+      `Added ${trimmed} to the Christmas list.`
     );
     if (ok) {
       setAddName('');
-      setAddPin('');
       resetFormValidationState(addFormRef.current);
-    }
-  };
-
-  const handlePinResetSubmit = async (
-    e: React.FormEvent<HTMLFormElement>,
-    participantId: string,
-    participantName: string
-  ) => {
-    e.preventDefault();
-    const ok = await runAdminAction(
-      'admin_reset_pin',
-      { participantId, newPin: pinResetValue.trim() },
-      `Updated PIN for ${participantName}.`
-    );
-    if (ok) {
-      setPinResetTargetId(null);
-      setPinResetValue('');
     }
   };
 
@@ -222,7 +197,7 @@ export function AdminDialog({
       setSettingsNewPin('');
       onStateUpdate(res.state);
       resetFormValidationState(settingsFormRef.current);
-      setFeedback({ text: 'Event settings updated.', isError: false });
+      setFeedback({ text: 'Christmas event settings saved.', isError: false });
     } catch (err) {
       setFeedback({
         text: err instanceof ApiError ? err.message : 'Unable to save settings.',
@@ -237,7 +212,7 @@ export function AdminDialog({
     const ok = await runAdminAction(
       'admin_reset_all',
       {},
-      'Event reset. Ready for a fresh guest ledger.'
+      'Event reset. Ready for a new group of names.'
     );
     if (ok) {
       setConfirmReset(false);
@@ -253,23 +228,23 @@ export function AdminDialog({
     <dialog
       ref={dialogRef}
       id="admin-dialog"
-      className="atelier-dialog atelier-dialog-wide"
+      className="atelier-dialog"
       aria-labelledby="admin-dialog-title"
       {...({ closedby: 'any' } as Record<string, string>)}
     >
-      <div className="atelier-dialog-scroll rounded-[28px] bg-white/[0.03] p-1.5 ring-1 ring-white/[0.08]">
-        <div className="rounded-[22px] bg-[#111715] p-6 sm:p-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-          <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4 mb-5">
+      <div className="atelier-dialog-scroll rounded-[28px] bg-[#D99B26]/20 p-1.5 ring-1 ring-[#D99B26]/35">
+        <div className="rounded-[22px] bg-[#10291E] p-6 sm:p-7 shadow-[inset_0_1px_0_rgba(255,253,249,0.1)]">
+          <div className="mb-5 flex items-start justify-between gap-4 border-b border-white/[0.1] pb-4">
             <div>
-              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[#C5A059]">
+              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[#D99B26]">
                 <ShieldCheck size={14} weight="regular" aria-hidden="true" />
-                Organizer Console
+                Organizer Controls
               </span>
               <h2
                 id="admin-dialog-title"
-                className="mt-1 font-serif text-3xl leading-none tracking-tight text-[#F5F2EB]"
+                className="mt-1 font-serif text-3xl leading-none tracking-tight text-[#FFFDF9]"
               >
-                {activeAdminPin ? 'Event Administration' : 'Organizer Verification'}
+                {activeAdminPin ? 'Manage Stick Draw' : 'Organizer Access'}
               </h2>
             </div>
 
@@ -277,8 +252,8 @@ export function AdminDialog({
               <button
                 type="submit"
                 value="close"
-                aria-label="Close organizer console"
-                className="atelier-btn inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.04] text-[#9E988E] ring-1 ring-white/[0.08] transition-colors duration-200 hover:bg-white/[0.08] hover:text-[#F5F2EB] active:scale-[0.97]"
+                aria-label="Close organizer controls"
+                className="atelier-btn inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.06] text-[#F7EFE1] ring-1 ring-white/[0.12] transition-colors duration-200 hover:bg-white/[0.12] active:scale-[0.97]"
               >
                 <X size={18} weight="light" aria-hidden="true" />
               </button>
@@ -287,9 +262,9 @@ export function AdminDialog({
 
           {!activeAdminPin ? (
             <div>
-              <p className="mb-5 text-sm leading-relaxed text-[#9E988E]">
-                Manage the guest ledger, initiate the draw, and monitor completion without
-                revealing private pairings.
+              <p className="mb-5 text-sm leading-relaxed text-[#D8E2DC]">
+                Enter the Organizer PIN to activate the stick draw, manage names, and track stick
+                progress without spoiling matches.
               </p>
 
               <form
@@ -300,10 +275,10 @@ export function AdminDialog({
                 onSubmit={handleLoginSubmit}
               >
                 <div className="mb-5 flex flex-col gap-1.5">
-                  <label htmlFor="admin-pin-input" className="text-sm font-medium text-[#F5F2EB]">
-                    Organizer 4-Digit PIN <span className="text-[#C83E31]" aria-hidden="true">*</span>
+                  <label htmlFor="admin-pin-input" className="text-sm font-medium text-[#FFFDF9]">
+                    Organizer 4-Digit PIN <span className="text-[#FCA5A5]" aria-hidden="true">*</span>
                   </label>
-                  <span id="admin-pin-hint" className="text-xs text-[#9E988E]">
+                  <span id="admin-pin-hint" className="text-xs text-[#D8E2DC]/75">
                     Default initial PIN is 1234 (changeable once unlocked)
                   </span>
                   <input
@@ -338,7 +313,7 @@ export function AdminDialog({
                 {loginError && (
                   <div
                     role="alert"
-                    className="mb-4 flex items-start gap-2 rounded-xl border border-[#C83E31]/40 bg-[#C83E31]/12 px-3.5 py-2.5 text-sm text-[#F28B7D]"
+                    className="mb-4 flex items-start gap-2 rounded-xl border border-[#B91C1C]/60 bg-[#B91C1C]/20 px-3.5 py-2.5 text-sm text-[#FCA5A5]"
                   >
                     <ErrorMark />
                     <span>{loginError}</span>
@@ -348,9 +323,9 @@ export function AdminDialog({
                 <button
                   type="submit"
                   disabled={loginSubmitting}
-                  className="atelier-btn group flex w-full items-center justify-between rounded-full bg-[#C83E31] py-2 pl-6 pr-2 text-sm font-semibold text-[#F5F2EB] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#d64538] active:scale-[0.98] disabled:opacity-60"
+                  className="atelier-btn group flex w-full items-center justify-between rounded-full bg-[#B91C1C] py-2 pl-6 pr-2 text-sm font-semibold text-[#FFFDF9] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#991B1B] active:scale-[0.98] disabled:opacity-60"
                 >
-                  <span>{loginSubmitting ? 'Verifying...' : 'Unlock Organizer Console'}</span>
+                  <span>{loginSubmitting ? 'Verifying...' : 'Unlock Organizer Controls'}</span>
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/20 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
                     <ArrowUpRight size={17} weight="regular" aria-hidden="true" />
                   </span>
@@ -365,8 +340,8 @@ export function AdminDialog({
                   aria-live="polite"
                   className={`rounded-xl border px-3.5 py-2.5 text-sm font-medium ${
                     feedback.isError
-                      ? 'border-[#C83E31]/40 bg-[#C83E31]/12 text-[#F28B7D]'
-                      : 'border-[#C5A059]/35 bg-[#C5A059]/10 text-[#F5F2EB]'
+                      ? 'border-[#B91C1C]/60 bg-[#B91C1C]/20 text-[#FCA5A5]'
+                      : 'border-[#D99B26]/45 bg-[#D99B26]/15 text-[#FFFDF9]'
                   }`}
                 >
                   {feedback.text}
@@ -376,28 +351,25 @@ export function AdminDialog({
               {/* Phase Controls */}
               <section aria-labelledby="admin-phase-heading">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 id="admin-phase-heading" className="text-base font-semibold text-[#F5F2EB]">
-                    Exchange Phase
+                  <h3 id="admin-phase-heading" className="text-base font-semibold text-[#FFFDF9]">
+                    Stick Draw Phase
                   </h3>
                   <button
                     type="button"
-                    onClick={() => {
-                      setActiveAdminPin(null);
-                      setPinResetTargetId(null);
-                    }}
-                    className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-[#9E988E] transition-colors hover:bg-white/[0.07] hover:text-[#F5F2EB]"
+                    onClick={() => setActiveAdminPin(null)}
+                    className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-white/[0.14] bg-white/[0.05] px-3.5 py-1.5 text-xs font-medium text-[#F7EFE1] transition-colors hover:bg-white/[0.1]"
                   >
                     <Lock size={13} weight="regular" aria-hidden="true" />
-                    Lock Console
+                    Lock Panel
                   </button>
                 </div>
 
                 {!isDrawing ? (
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
-                    <p className="mb-4 text-sm text-[#9E988E]">
+                  <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] p-4">
+                    <p className="mb-4 text-sm text-[#D8E2DC]">
                       {total >= 3
-                        ? `${total} participants ready. Locking registration generates a randomized single-cycle pairing.`
-                        : `Need at least 3 participants to start the draw (${total} joined so far).`}
+                        ? `${total} participants in the pack. Activate the draw when everyone's name is in!`
+                        : `Need at least 3 participants before starting (${total} joined so far).`}
                     </p>
                     <button
                       type="button"
@@ -406,15 +378,15 @@ export function AdminDialog({
                         runAdminAction(
                           'admin_start_draw',
                           {},
-                          'Registration locked and secret pairings generated.'
+                          'Stick draw activated! Guests can now pick a stick from the pack.'
                         )
                       }
-                      className="atelier-btn group flex w-full items-center justify-between rounded-full bg-[#C83E31] py-2 pl-5 pr-2 text-sm font-semibold text-[#F5F2EB] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#d64538] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+                      className="atelier-btn group flex w-full items-center justify-between rounded-full bg-[#B91C1C] py-2 pl-5 pr-2 text-sm font-semibold text-[#FFFDF9] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#991B1B] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       <span>
                         {busyAction === 'admin_start_draw'
-                          ? 'Shuffling Pairings...'
-                          : 'Lock Registration & Open Draw'}
+                          ? 'Shuffling Sticks...'
+                          : 'Activate Stick Draw (Lock Names & Shuffle)'}
                       </span>
                       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/20">
                         <ArrowUpRight size={16} weight="regular" aria-hidden="true" />
@@ -422,16 +394,16 @@ export function AdminDialog({
                     </button>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+                  <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] p-4">
                     <div className="mb-3 flex items-baseline justify-between">
-                      <span className="text-sm text-[#9E988E]">Envelope Completion</span>
-                      <span className="font-mono text-sm font-semibold text-[#C5A059]">
-                        {drawnCount} / {total} unsealed
+                      <span className="text-sm text-[#D8E2DC]">Sticks Pulled</span>
+                      <span className="font-mono text-sm font-semibold text-[#D99B26]">
+                        {drawnCount} of {total} sticks pulled
                       </span>
                     </div>
-                    <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
+                    <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-white/[0.1]">
                       <div
-                        className="h-full rounded-full bg-[#C5A059] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
+                        className="h-full rounded-full bg-[#D99B26] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
                         style={{ width: `${total > 0 ? (drawnCount / total) * 100 : 0}%` }}
                       />
                     </div>
@@ -443,13 +415,13 @@ export function AdminDialog({
                           runAdminAction(
                             'admin_reshuffle',
                             {},
-                            'All pairings freshly re-shuffled and statuses reset.'
+                            'All sticks freshly re-shuffled and statuses reset.'
                           )
                         }
-                        className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.04] px-4 py-2 text-xs font-semibold text-[#F5F2EB] transition-colors hover:bg-white/[0.08] active:scale-[0.98]"
+                        className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.16] bg-white/[0.06] px-4 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.12] active:scale-[0.98]"
                       >
                         <ArrowsClockwise size={14} weight="regular" aria-hidden="true" />
-                        Re-shuffle Matches
+                        Re-shuffle All Sticks
                       </button>
                       <button
                         type="button"
@@ -458,138 +430,72 @@ export function AdminDialog({
                           runAdminAction(
                             'admin_reopen_registration',
                             {},
-                            'Registration re-opened. Previous pairings were cleared.'
+                            'Name entry re-opened! Previous pairings cleared.'
                           )
                         }
-                        className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.04] px-4 py-2 text-xs font-semibold text-[#F5F2EB] transition-colors hover:bg-white/[0.08] active:scale-[0.98]"
+                        className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.16] bg-white/[0.06] px-4 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.12] active:scale-[0.98]"
                       >
                         <LockOpen size={14} weight="regular" aria-hidden="true" />
-                        Re-open Registration
+                        Re-open Name Entry
                       </button>
                     </div>
                   </div>
                 )}
               </section>
 
-              {/* Participant Manager */}
+              {/* Participant List */}
               <section
                 aria-labelledby="admin-participants-heading"
-                className="border-t border-white/[0.08] pt-5"
+                className="border-t border-white/[0.1] pt-5"
               >
                 <h3
                   id="admin-participants-heading"
-                  className="mb-1 text-base font-semibold text-[#F5F2EB]"
+                  className="mb-1 text-base font-semibold text-[#FFFDF9]"
                 >
-                  Guest Ledger (Spoiler-Free)
+                  Participant List (Spoiler-Free)
                 </h3>
-                <p className="mb-3 text-xs text-[#9E988E]">
-                  Track status or reset forgotten PINs without exposing matches.
+                <p className="mb-3 text-xs text-[#D8E2DC]/80">
+                  See who has entered the pack or pulled their stick without spoiling matches.
                 </p>
 
                 {total === 0 ? (
-                  <p className="rounded-xl border border-dashed border-white/[0.12] px-4 py-4 text-sm text-[#9E988E]">
-                    No participants have joined yet.
+                  <p className="rounded-xl border border-dashed border-white/[0.16] px-4 py-4 text-sm text-[#D8E2DC]/80">
+                    No names entered yet.
                   </p>
                 ) : (
-                  <ul className="divide-y divide-white/[0.07] rounded-2xl border border-white/[0.08] bg-white/[0.02]">
+                  <ul className="divide-y divide-white/[0.08] rounded-2xl border border-white/[0.1] bg-white/[0.03]">
                     {state.participants.map((p) => (
-                      <li key={p.id} className="px-4 py-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5">
-                            <span className="font-medium text-[#F5F2EB]">{p.name}</span>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[11px] ${
-                                isDrawing
-                                  ? p.hasDrawn
-                                    ? 'bg-[#C5A059]/15 text-[#C5A059]'
-                                    : 'bg-white/[0.06] text-[#9E988E]'
-                                  : 'bg-white/[0.06] text-[#9E988E]'
-                              }`}
-                            >
-                              {isDrawing ? (p.hasDrawn ? 'Unsealed' : 'Pending') : 'Registered'}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPinResetTargetId(pinResetTargetId === p.id ? null : p.id);
-                                setPinResetValue('');
-                              }}
-                              className="atelier-btn inline-flex items-center gap-1 rounded-full border border-white/[0.1] px-3 py-1 text-xs font-medium text-[#9E988E] transition-colors hover:bg-white/[0.06] hover:text-[#F5F2EB]"
-                            >
-                              <Key size={13} weight="regular" aria-hidden="true" />
-                              Reset PIN
-                            </button>
-
-                            {!isDrawing && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  runAdminAction(
-                                    'admin_remove_participant',
-                                    { participantId: p.id },
-                                    `Removed ${p.name} from the ledger.`
-                                  )
-                                }
-                                className="atelier-btn inline-flex items-center gap-1 rounded-full border border-[#C83E31]/30 px-3 py-1 text-xs font-medium text-[#F28B7D] transition-colors hover:bg-[#C83E31]/15"
-                              >
-                                <UserMinus size={13} weight="regular" aria-hidden="true" />
-                                Remove
-                              </button>
-                            )}
-                          </div>
+                      <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-medium text-[#FFFDF9]">{p.name}</span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-[11px] ${
+                              isDrawing
+                                ? p.hasDrawn
+                                  ? 'bg-[#D99B26]/20 text-[#D99B26]'
+                                  : 'bg-white/[0.08] text-[#D8E2DC]'
+                                : 'bg-white/[0.08] text-[#D8E2DC]'
+                            }`}
+                          >
+                            {isDrawing ? (p.hasDrawn ? 'Pulled' : 'Waiting') : 'In Pack'}
+                          </span>
                         </div>
 
-                        {pinResetTargetId === p.id && (
-                          <form
-                            method="POST"
-                            action="/api/event"
-                            aria-label={`Reset PIN for ${p.name}`}
-                            onSubmit={(e) => handlePinResetSubmit(e, p.id, p.name)}
-                            className="mt-3 flex flex-wrap items-end gap-2.5 border-t border-white/[0.06] pt-3"
+                        {!isDrawing && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              runAdminAction(
+                                'admin_remove_participant',
+                                { participantId: p.id },
+                                `Removed ${p.name} from the pack.`
+                              )
+                            }
+                            className="atelier-btn inline-flex items-center gap-1 rounded-full border border-[#B91C1C]/50 bg-[#B91C1C]/15 px-3 py-1 text-xs font-medium text-[#FCA5A5] transition-colors hover:bg-[#B91C1C]/30"
                           >
-                            <div className="flex min-w-[140px] flex-1 flex-col gap-1">
-                              <label
-                                htmlFor={`reset-pin-${p.id}`}
-                                className="text-xs font-medium text-[#9E988E]"
-                              >
-                                New 4-Digit PIN for {p.name}
-                              </label>
-                              <input
-                                id={`reset-pin-${p.id}`}
-                                name="newPin"
-                                type="text"
-                                inputMode="numeric"
-                                pattern="\d{4}"
-                                minLength={4}
-                                maxLength={4}
-                                required
-                                autoComplete="off"
-                                autoFocus
-                                value={pinResetValue}
-                                onChange={(e) => setPinResetValue(e.target.value)}
-                                placeholder="4 digits"
-                                className="atelier-input font-mono"
-                              />
-                            </div>
-                            <button
-                              type="submit"
-                              disabled={busyAction === 'admin_reset_pin'}
-                              className="atelier-btn inline-flex items-center gap-1.5 rounded-full bg-[#C83E31] px-4 py-2 text-xs font-semibold text-[#F5F2EB] hover:bg-[#d64538]"
-                            >
-                              <Check size={14} weight="bold" aria-hidden="true" />
-                              Save PIN
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPinResetTargetId(null)}
-                              className="atelier-btn rounded-full border border-white/[0.12] px-4 py-2 text-xs font-medium text-[#9E988E] hover:text-[#F5F2EB]"
-                            >
-                              Cancel
-                            </button>
-                          </form>
+                            <UserMinus size={13} weight="regular" aria-hidden="true" />
+                            Remove
+                          </button>
                         )}
                       </li>
                     ))}
@@ -603,85 +509,50 @@ export function AdminDialog({
                     action="/api/event"
                     aria-labelledby="admin-add-heading"
                     onSubmit={handleAddSubmit}
-                    className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4"
+                    className="mt-4 rounded-2xl border border-white/[0.1] bg-white/[0.03] p-4"
                   >
-                    <h4 id="admin-add-heading" className="mb-3 text-sm font-semibold text-[#F5F2EB]">
-                      Add Guest Manually
+                    <h4 id="admin-add-heading" className="mb-3 text-sm font-semibold text-[#FFFDF9]">
+                      Add Participant Manually
                     </h4>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-                      <div className="flex flex-col gap-1 sm:col-span-7">
-                        <label
-                          htmlFor="admin-add-name"
-                          className="text-xs font-medium text-[#F5F2EB]"
-                        >
-                          Name <span className="text-[#C83E31]" aria-hidden="true">*</span>
-                        </label>
-                        <span id="admin-add-name-hint" className="text-[11px] text-[#9E988E]">
-                          2–40 characters
-                        </span>
-                        <input
-                          id="admin-add-name"
-                          name="name"
-                          type="text"
-                          minLength={2}
-                          maxLength={40}
-                          required
-                          autoComplete="off"
-                          value={addName}
-                          onChange={(e) => setAddName(e.target.value)}
-                          aria-describedby="admin-add-name-hint"
-                          data-error="admin-add-name-error"
-                          placeholder="Guest name"
-                          className="atelier-input"
-                        />
-                        <div id="admin-add-name-error" className="error-msg">
-                          <ErrorMark />
-                          <span>Enter 2–40 characters.</span>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="admin-add-name" className="text-xs font-medium text-[#FFFDF9]">
+                        Participant Name <span className="text-[#FCA5A5]" aria-hidden="true">*</span>
+                      </label>
+                      <span id="admin-add-name-hint" className="text-[11px] text-[#D8E2DC]/75">
+                        2–40 characters
+                      </span>
+                      <div className="flex flex-wrap items-start gap-2.5">
+                        <div className="min-w-[180px] flex-1">
+                          <input
+                            id="admin-add-name"
+                            name="name"
+                            type="text"
+                            minLength={2}
+                            maxLength={40}
+                            required
+                            autoComplete="off"
+                            value={addName}
+                            onChange={(e) => setAddName(e.target.value)}
+                            aria-describedby="admin-add-name-hint"
+                            data-error="admin-add-name-error"
+                            placeholder="Enter guest name"
+                            className="atelier-input"
+                          />
+                          <div id="admin-add-name-error" className="error-msg">
+                            <ErrorMark />
+                            <span>Enter 2–40 characters.</span>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="flex flex-col gap-1 sm:col-span-5">
-                        <label
-                          htmlFor="admin-add-pin"
-                          className="text-xs font-medium text-[#F5F2EB]"
+                        <button
+                          type="submit"
+                          disabled={busyAction === 'admin_add_participant'}
+                          className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-white/[0.16] bg-white/[0.08] px-5 py-3 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.15]"
                         >
-                          4-Digit PIN <span className="text-[#C83E31]" aria-hidden="true">*</span>
-                        </label>
-                        <span id="admin-add-pin-hint" className="text-[11px] text-[#9E988E]">
-                          Share privately with guest
-                        </span>
-                        <input
-                          id="admin-add-pin"
-                          name="pin"
-                          type="text"
-                          inputMode="numeric"
-                          pattern="\d{4}"
-                          minLength={4}
-                          maxLength={4}
-                          required
-                          autoComplete="off"
-                          value={addPin}
-                          onChange={(e) => setAddPin(e.target.value)}
-                          aria-describedby="admin-add-pin-hint"
-                          data-error="admin-add-pin-error"
-                          placeholder="1234"
-                          className="atelier-input font-mono"
-                        />
-                        <div id="admin-add-pin-error" className="error-msg">
-                          <ErrorMark />
-                          <span>4 numeric digits required.</span>
-                        </div>
+                          <Plus size={14} weight="bold" aria-hidden="true" />
+                          Add Name
+                        </button>
                       </div>
                     </div>
-
-                    <button
-                      type="submit"
-                      disabled={busyAction === 'admin_add_participant'}
-                      className="atelier-btn mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.05] px-4 py-2 text-xs font-semibold text-[#F5F2EB] transition-colors hover:bg-white/[0.1]"
-                    >
-                      <Plus size={14} weight="bold" aria-hidden="true" />
-                      Add to Ledger
-                    </button>
                   </form>
                 )}
               </section>
@@ -689,13 +560,13 @@ export function AdminDialog({
               {/* Event Settings */}
               <section
                 aria-labelledby="admin-settings-heading"
-                className="border-t border-white/[0.08] pt-5"
+                className="border-t border-white/[0.1] pt-5"
               >
                 <h3
                   id="admin-settings-heading"
-                  className="mb-3 text-base font-semibold text-[#F5F2EB]"
+                  className="mb-3 text-base font-semibold text-[#FFFDF9]"
                 >
-                  Exchange Settings
+                  Christmas Event Settings
                 </h3>
                 <form
                   ref={settingsFormRef}
@@ -708,12 +579,12 @@ export function AdminDialog({
                   <div className="flex flex-col gap-1">
                     <label
                       htmlFor="settings-event-name"
-                      className="text-xs font-medium text-[#F5F2EB]"
+                      className="text-xs font-medium text-[#FFFDF9]"
                     >
-                      Event Title <span className="text-[#C83E31]" aria-hidden="true">*</span>
+                      Event Title <span className="text-[#FCA5A5]" aria-hidden="true">*</span>
                     </label>
-                    <span id="settings-event-name-hint" className="text-[11px] text-[#9E988E]">
-                      Displayed on the masthead (2–60 characters)
+                    <span id="settings-event-name-hint" className="text-[11px] text-[#D8E2DC]/75">
+                      Displayed at the top of the page (2–60 characters)
                     </span>
                     <input
                       id="settings-event-name"
@@ -738,11 +609,11 @@ export function AdminDialog({
                     <div className="flex flex-col gap-1">
                       <label
                         htmlFor="settings-budget"
-                        className="text-xs font-medium text-[#F5F2EB]"
+                        className="text-xs font-medium text-[#FFFDF9]"
                       >
-                        Gift Budget or Note
+                        Gift Budget or Date Note
                       </label>
-                      <span id="settings-budget-hint" className="text-[11px] text-[#9E988E]">
+                      <span id="settings-budget-hint" className="text-[11px] text-[#D8E2DC]/75">
                         Optional (up to 40 characters)
                       </span>
                       <input
@@ -765,11 +636,11 @@ export function AdminDialog({
                     <div className="flex flex-col gap-1">
                       <label
                         htmlFor="settings-new-pin"
-                        className="text-xs font-medium text-[#F5F2EB]"
+                        className="text-xs font-medium text-[#FFFDF9]"
                       >
                         Change Organizer PIN
                       </label>
-                      <span id="settings-new-pin-hint" className="text-[11px] text-[#9E988E]">
+                      <span id="settings-new-pin-hint" className="text-[11px] text-[#D8E2DC]/75">
                         Leave blank to keep current PIN
                       </span>
                       <input
@@ -797,7 +668,7 @@ export function AdminDialog({
                   <button
                     type="submit"
                     disabled={busyAction === 'admin_update_settings'}
-                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.06] px-5 py-2 text-xs font-semibold text-[#F5F2EB] transition-colors hover:bg-white/[0.12]"
+                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-white/[0.16] bg-white/[0.08] px-5 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-white/[0.14]"
                   >
                     <Check size={14} weight="bold" aria-hidden="true" />
                     Save Settings
@@ -808,20 +679,20 @@ export function AdminDialog({
               {/* Reset Event */}
               <section
                 aria-labelledby="admin-danger-heading"
-                className="border-t border-white/[0.08] pt-5"
+                className="border-t border-white/[0.1] pt-5"
               >
-                <h3 id="admin-danger-heading" className="mb-1 text-base font-semibold text-[#F28B7D]">
-                  Reset Exchange
+                <h3 id="admin-danger-heading" className="mb-1 text-base font-semibold text-[#FCA5A5]">
+                  Reset Event
                 </h3>
-                <p className="mb-3 text-xs text-[#9E988E]">
-                  Clears every participant and pairing to begin a new event.
+                <p className="mb-3 text-xs text-[#D8E2DC]/80">
+                  Clears every name and stick pairing so you can start fresh.
                 </p>
 
                 {!confirmReset ? (
                   <button
                     type="button"
                     onClick={() => setConfirmReset(true)}
-                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-[#C83E31]/40 bg-[#C83E31]/10 px-4 py-2 text-xs font-semibold text-[#F28B7D] transition-colors hover:bg-[#C83E31]/20"
+                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-[#B91C1C]/50 bg-[#B91C1C]/20 px-4 py-2 text-xs font-semibold text-[#FCA5A5] transition-colors hover:bg-[#B91C1C]/35"
                   >
                     <Trash size={14} weight="regular" aria-hidden="true" />
                     Reset Entire Event
@@ -832,14 +703,14 @@ export function AdminDialog({
                       type="button"
                       disabled={busyAction === 'admin_reset_all'}
                       onClick={handleResetAll}
-                      className="atelier-btn inline-flex items-center gap-2 rounded-full bg-[#C83E31] px-4 py-2 text-xs font-semibold text-[#F5F2EB] hover:bg-[#d64538]"
+                      className="atelier-btn inline-flex items-center gap-2 rounded-full bg-[#B91C1C] px-4 py-2 text-xs font-semibold text-[#FFFDF9] hover:bg-[#991B1B]"
                     >
                       Confirm Delete All Names
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmReset(false)}
-                      className="atelier-btn rounded-full border border-white/[0.12] px-4 py-2 text-xs font-medium text-[#9E988E] hover:text-[#F5F2EB]"
+                      className="atelier-btn rounded-full border border-white/[0.16] px-4 py-2 text-xs font-medium text-[#D8E2DC] hover:text-[#FFFDF9]"
                     >
                       Cancel
                     </button>

@@ -34,14 +34,11 @@ export async function postEventAction<T extends Record<string, unknown>>(
   return data as T & { ok: boolean; state: EventState };
 }
 
-export async function revealDrawMatch(
-  participantId: string,
-  pin: string
-): Promise<DrawRevealResult> {
+export async function revealDrawMatch(participantId: string): Promise<DrawRevealResult> {
   const data = await postEventAction<{
     participantName: string;
     assignedToName: string;
-  }>('draw', { participantId, pin });
+  }>('draw', { participantId });
 
   return {
     participantName: data.participantName,

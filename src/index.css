@@ -7,13 +7,13 @@
 }
 
 :root {
-  --ease-atelier: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-festive: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 html,
 body {
-  background-color: #0B0F0E;
-  color: #F5F2EB;
+  background-color: #0F291E;
+  color: #FFFDF9;
   font-family: var(--font-sans);
   overflow-x: hidden;
   min-height: 100dvh;
@@ -31,51 +31,109 @@ body {
   white-space: nowrap !important;
 }
 
-/* Modern Web Guidance: Forms & :user-invalid validation */
+/* Gentle GPU-only snowfall drift */
+@keyframes snowfall-drift {
+  0% {
+    transform: translate3d(0, -8vh, 0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.55;
+  }
+  88% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translate3d(18px, 106vh, 0);
+    opacity: 0;
+  }
+}
+
+.snowflake-particle {
+  animation-name: snowfall-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snowflake-particle {
+    animation: none;
+    display: none;
+  }
+}
+
+/* Modern Web Guidance: Accessible Form Controls & :user-invalid */
 .atelier-input {
   width: 100%;
   font: inherit;
   font-size: max(1rem, 1em);
   min-height: 48px;
-  color: #F5F2EB;
-  background-color: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(245, 242, 235, 0.16);
-  border-radius: 12px;
-  padding: 0.75rem 0.95rem;
-  transition: border-color 180ms var(--ease-atelier), background-color 180ms var(--ease-atelier);
+  color: #FFFDF9;
+  background-color: rgba(255, 253, 249, 0.06);
+  border: 1.5px solid rgba(217, 155, 38, 0.32);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  transition: border-color 180ms var(--ease-festive), background-color 180ms var(--ease-festive);
+}
+
+.atelier-input-light {
+  width: 100%;
+  font: inherit;
+  font-size: max(1rem, 1em);
+  min-height: 48px;
+  color: #1B2E24;
+  background-color: #FFFFFF;
+  border: 1.5px solid #D8CBB5;
+  border-radius: 14px;
+  padding: 0.8rem 1rem;
+  transition: border-color 180ms var(--ease-festive), background-color 180ms var(--ease-festive);
 }
 
 .atelier-input::placeholder {
-  color: rgba(158, 152, 142, 0.58);
+  color: rgba(247, 239, 225, 0.45);
+}
+
+.atelier-input-light::placeholder {
+  color: #8A7F6E;
 }
 
 .atelier-input:hover {
-  border-color: rgba(245, 242, 235, 0.3);
+  border-color: rgba(217, 155, 38, 0.58);
+}
+
+.atelier-input-light:hover {
+  border-color: #A68A5B;
 }
 
 .atelier-input:focus-visible,
+.atelier-input-light:focus-visible,
 button:focus-visible {
-  outline: 2px solid #C5A059;
+  outline: 2.5px solid #D99B26;
   outline-offset: 2px;
 }
 
 :is(:user-invalid, .user-invalid-fallback) {
-  border-color: #E05A47 !important;
-  background-color: rgba(200, 62, 49, 0.12) !important;
+  border-color: #DC2626 !important;
+  background-color: rgba(220, 38, 38, 0.08) !important;
 }
 
 :is(:user-valid, .user-valid-fallback) {
-  border-color: rgba(197, 160, 89, 0.55);
+  border-color: #16A34A;
 }
 
 .error-msg {
   display: none;
   align-items: center;
   gap: 0.4rem;
-  color: #F28B7D;
+  color: #FCA5A5;
   font-size: 0.84rem;
-  font-weight: 500;
+  font-weight: 600;
   margin-top: 0.25rem;
+}
+
+.parchment-card .error-msg {
+  color: #B91C1C;
 }
 
 :is(:user-invalid, .user-invalid-fallback) + .error-msg {
@@ -84,6 +142,7 @@ button:focus-visible {
 
 @media (pointer: coarse) {
   .atelier-input,
+  .atelier-input-light,
   .atelier-btn {
     min-height: 52px;
   }
@@ -94,15 +153,11 @@ dialog.atelier-dialog {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #F5F2EB;
+  color: #FFFDF9;
   margin: auto;
-  width: min(94vw, 490px);
+  width: min(94vw, 660px);
   max-height: 90dvh;
   overflow: visible;
-}
-
-dialog.atelier-dialog-wide {
-  width: min(94vw, 660px);
 }
 
 dialog.atelier-dialog:modal {
@@ -112,7 +167,7 @@ dialog.atelier-dialog:modal {
 dialog.atelier-dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
-  background-color: rgba(6, 9, 8, 0.78);
+  background-color: rgba(8, 22, 16, 0.8);
   backdrop-filter: blur(8px);
 }
 

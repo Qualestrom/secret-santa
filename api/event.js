@@ -18,7 +18,7 @@ function getRedisConfig() {
 function createDefaultState() {
   const envAdminPin = process.env.DEFAULT_ADMIN_PIN;
   return {
-    eventName: 'Winter Gift Exchange',
+    eventName: 'Christmas Secret Santa',
     budget: '$25 Limit',
     phase: 'REGISTRATION',
     adminPin: envAdminPin && /^\d{4}$/.test(envAdminPin) ? envAdminPin : '1234',
@@ -230,19 +230,19 @@ export default async function handler(req, res) {
       case 'register': {
         if (state.phase !== 'REGISTRATION') {
           return sendJson(res, 409, {
-            error: 'Registration is locked because the draw has already started.',
+            error: 'Registration is locked because the stick draw has already started.',
           });
         }
         const nameCheck = validateName(body.name, state.participants);
         if (nameCheck.error) return sendJson(res, nameCheck.status || 400, { error: nameCheck.error });
 
-        const pinCheck = validatePin(body.pin);
-        if (pinCheck.error) return sendJson(res, 400, { error: pinCheck.error });
+        const optionalPin =
+          body.pin && /^\d{4}$/.test(String(body.pin).trim()) ? String(body.pin).trim() : null;
 
         const participant = {
           id: `p_${crypto.randomUUID()}`,
           name: nameCheck.cleanName,
-          pin: pinCheck.cleanPin,
+          pin: optionalPin,
           assignedToId: null,
           hasDrawn: false,
           joinedAt: new Date().toISOString(),
@@ -260,21 +260,12 @@ export default async function handler(req, res) {
       case 'draw': {
         if (state.phase !== 'DRAWING') {
           return sendJson(res, 409, {
-            error: 'Drawing has not started yet. Ask the organizer to open the draw.',
+            error: 'The stick draw has not started yet. Ask the organizer to activate it.',
           });
         }
         const participant = state.participants.find((p) => p.id === body.participantId);
         if (!participant) {
           return sendJson(res, 404, { error: 'Participant not found.' });
-        }
-
-        const pinCheck = validatePin(body.pin);
-        if (pinCheck.error) return sendJson(res, 400, { error: pinCheck.error });
-
-        if (participant.pin !== pinCheck.cleanPin) {
-          return sendJson(res, 403, {
-            error: 'Incorrect 4-digit PIN. Please try again or ask the organizer to reset your PIN.',
-          });
         }
 
         const recipient = state.participants.find((p) => p.id === participant.assignedToId);
@@ -347,18 +338,18 @@ export default async function handler(req, res) {
           return sendJson(res, 403, { error: 'Incorrect Organizer PIN.' });
         }
         if (state.phase !== 'REGISTRATION') {
-          return sendJson(res, 409, { error: 'Re-open registration before adding participants.' });
+          return sendJson(res, 409, { error: 'Re-open name entry before adding participants.' });
         }
         const nameCheck = validateName(body.name, state.participants);
         if (nameCheck.error) return sendJson(res, nameCheck.status || 400, { error: nameCheck.error });
 
-        const pinCheck = validatePin(body.pin);
-        if (pinCheck.error) return sendJson(res, 400, { error: pinCheck.error });
+        const optionalPin =
+          body.pin && /^\d{4}$/.test(String(body.pin).trim()) ? String(body.pin).trim() : null;
 
         const participant = {
           id: `p_${crypto.randomUUID()}`,
           name: nameCheck.cleanName,
-          pin: pinCheck.cleanPin,
+          pin: optionalPin,
           assignedToId: null,
           hasDrawn: false,
           joinedAt: new Date().toISOString(),

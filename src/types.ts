@@ -3,6 +3,8 @@ export type EventPhase = 'REGISTRATION' | 'DRAWING';
 export interface PublicParticipant {
   id: string;
   name: string;
+  hasDrawn?: boolean;
+  drawnAt?: string | null;
   joinedAt: string;
 }
 

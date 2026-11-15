@@ -211,10 +211,12 @@ export function sanitizeState(state, storageMode, includeRoster = false) {
   };
 
   if (includeRoster) {
-    // Organizer sees participant names only (never who has been picked or by whom)
+    // Organizer sees participant names and whether each name has been picked from the tin
     base.participants = state.participants.map((p) => ({
       id: p.id,
       name: p.name,
+      hasDrawn: Boolean(p.hasDrawn),
+      drawnAt: p.drawnAt || null,
       joinedAt: p.joinedAt,
     }));
   }

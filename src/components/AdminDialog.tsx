@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ArrowsClockwise,
   ArrowUpRight,
+  BellRinging,
+  Check,
   Lock,
   Plus,
   ShieldCheck,
@@ -47,6 +49,11 @@ export function AdminDialog({
   // Reset confirmation
   const [confirmReset, setConfirmReset] = useState(false);
 
+  // Picked-name live notifier tracking
+  const [pickNotice, setPickNotice] = useState<string | null>(null);
+  const prevDrawnIdsRef = useRef<Set<string> | null>(null);
+  const prevRoundIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!open) return;
     setLoginError(null);
@@ -72,6 +79,49 @@ export function AdminDialog({
 
     return () => cancelAnimationFrame(frame);
   }, [open, activeAdminPin, onStateUpdate]);
+
+  // Refresh organizer roster automatically when polling detects picks or round changes
+  useEffect(() => {
+    if (!open || !activeAdminPin) return;
+    let cancelled = false;
+    postEventAction('admin_verify', { adminPin: activeAdminPin })
+      .then((res) => {
+        if (!cancelled) onStateUpdate(res.state);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, activeAdminPin, state.remainingCount, state.totalCount, state.roundId, onStateUpdate]);
+
+  // Notify organizer when any name from the list is newly picked
+  useEffect(() => {
+    const participants = state.participants;
+    if (!participants) return;
+
+    const currentDrawn = participants.filter((p) => p.hasDrawn);
+    const currentDrawnIds = new Set(currentDrawn.map((p) => p.id));
+    const prevDrawnIds = prevDrawnIdsRef.current;
+
+    if (prevRoundIdRef.current === state.roundId && prevDrawnIds !== null) {
+      const newlyPicked = currentDrawn.filter((p) => !prevDrawnIds.has(p.id));
+      if (newlyPicked.length > 0) {
+        const names = newlyPicked.map((p) => p.name).join(', ');
+        setPickNotice(
+          newlyPicked.length === 1
+            ? `"${names}" was just picked from the tin (${currentDrawn.length} of ${state.totalCount} picked).`
+            : `${newlyPicked.length} names just picked: ${names} (${currentDrawn.length} of ${state.totalCount} picked).`
+        );
+      } else if (currentDrawn.length === 0) {
+        setPickNotice(null);
+      }
+    } else if (prevRoundIdRef.current !== state.roundId || currentDrawn.length === 0) {
+      setPickNotice(null);
+    }
+
+    prevDrawnIdsRef.current = currentDrawnIds;
+    prevRoundIdRef.current = state.roundId;
+  }, [state.participants, state.roundId, state.totalCount]);
 
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -150,6 +200,9 @@ export function AdminDialog({
   const total = state.totalCount;
   const drawnCount = Math.max(0, total - state.remainingCount);
   const roster = state.participants ?? [];
+  const latestPicked = roster
+    .filter((p) => p.hasDrawn)
+    .sort((a, b) => (b.drawnAt ?? '').localeCompare(a.drawnAt ?? ''))[0];
 
   return (
     <aside
@@ -287,6 +340,40 @@ export function AdminDialog({
               </div>
             )}
 
+            {(pickNotice || latestPicked) && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex items-center justify-between gap-2 rounded-xl border border-[#4CE6B8]/50 bg-[#4CE6B8]/15 px-3 py-2 text-xs text-white"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4CE6B8] text-[#061A44]">
+                    <BellRinging size={13} weight="fill" aria-hidden="true" />
+                  </span>
+                  <span className="truncate font-medium">
+                    {pickNotice ?? (
+                      <>
+                        Latest picked from list:{' '}
+                        <strong className="font-semibold text-[#4CE6B8]">
+                          {latestPicked?.name}
+                        </strong>{' '}
+                        ({drawnCount} of {total} picked)
+                      </>
+                    )}
+                  </span>
+                </div>
+                {pickNotice && (
+                  <button
+                    type="button"
+                    onClick={() => setPickNotice(null)}
+                    className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#B8D0F0] hover:text-white"
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Compact Progress & Quick Actions Strip */}
             <div className="rounded-xl border border-[#4CE6B8]/20 bg-[#061A44]/60 p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -399,11 +486,13 @@ export function AdminDialog({
               </div>
             </form>
 
-            {/* Compact Spoiler-Free Participant Grid */}
+            {/* Compact Participant Grid with Live Picked Status */}
             <div className="flex-1">
               <div className="mb-1.5 flex items-center justify-between text-[11px] text-[#B8D0F0]/80">
                 <span className="font-medium text-[#B8D0F0]">Participants ({total})</span>
-                <span>Pick status stays hidden</span>
+                <span className="font-mono text-[10px] font-semibold text-[#4CE6B8]">
+                  {drawnCount} Picked · {state.remainingCount} In Tin
+                </span>
               </div>
 
               {roster.length === 0 ? (
@@ -411,15 +500,34 @@ export function AdminDialog({
                   No names in the Exchange Gift tin yet. Add names above.
                 </p>
               ) : (
-                <ul className="admin-roster-scroll grid max-h-[196px] grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
+                <ul className="admin-roster-scroll grid max-h-[176px] grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
                   {roster.map((p) => (
                     <li
                       key={p.id}
-                      className="flex items-center justify-between gap-2 rounded-xl border border-[#4CE6B8]/20 bg-[#061A44]/60 px-3 py-1.5 text-xs"
+                      className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-1.5 text-xs transition-colors ${
+                        p.hasDrawn
+                          ? 'border-[#4CE6B8]/55 bg-[#4CE6B8]/14'
+                          : 'border-[#4CE6B8]/20 bg-[#061A44]/60'
+                      }`}
                     >
-                      <span className="truncate font-medium text-white" title={p.name}>
-                        {p.name}
-                      </span>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className="truncate font-medium text-white"
+                          title={`${p.name} — ${p.hasDrawn ? 'Picked' : 'Still in tin'}`}
+                        >
+                          {p.name}
+                        </span>
+                        {p.hasDrawn ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#4CE6B8] px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-[#061A44]">
+                            <Check size={10} weight="bold" aria-hidden="true" />
+                            Picked
+                          </span>
+                        ) : (
+                          <span className="inline-flex shrink-0 items-center rounded-full border border-[#4CE6B8]/25 bg-[#0D2E70]/60 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wider text-[#B8D0F0]">
+                            In Tin
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
                         aria-label={`Remove ${p.name} from pack`}

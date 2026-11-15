@@ -1,0 +1,13 @@
+{
+  "name": "secret-santa",
+  "version": "1.0.0",
+  "description": "Two-phase Secret Santa name drawing website backed by Vercel Storage (Upstash Redis)",
+  "private": true,
+  "scripts": {
+    "dev": "node dev-server.js",
+    "start": "node dev-server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

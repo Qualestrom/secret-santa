@@ -181,23 +181,7 @@ button:focus-visible {
   }
 }
 
-/* Modern Web Guidance: Accessible Tab Indicator & Custom Scrollbar */
-.atelier-tab {
-  position: relative;
-}
-
-.atelier-tab[aria-selected='true'] {
-  color: #f8fafc;
-  background-color: rgba(15, 118, 110, 0.85);
-}
-
-.atelier-tab[aria-selected='true']::after {
-  content: '';
-  position: absolute;
-  inset: auto 0.5rem 0;
-  border-block-end: 2.5px solid #2dd4bf;
-}
-
+/* Modern Web Guidance: Custom Scrollbar */
 .admin-roster-scroll {
   --scrollbar-thumb: #2dd4bf;
   --scrollbar-track: #07162c;

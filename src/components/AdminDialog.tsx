@@ -155,19 +155,19 @@ export function AdminDialog({
     <aside
       id="admin-panel"
       aria-labelledby="admin-dialog-title"
-      className="flex w-full flex-col rounded-[28px] bg-[#14B8A6]/20 p-1.5 ring-1 ring-[#2DD4BF]/35 shadow-[0_26px_64px_-15px_rgba(0,0,0,0.55)]"
+      className="flex w-full flex-col rounded-[28px] bg-[#4CE6B8]/20 p-1.5 ring-1 ring-[#4CE6B8]/35 shadow-[0_26px_64px_-15px_rgba(3,12,38,0.65)]"
     >
-      <div className="flex h-full flex-col justify-between rounded-[22px] bg-[#0B213F] p-4 text-[#F8FAFC] shadow-[inset_0_1px_0_rgba(248,250,252,0.1)] sm:p-5">
+      <div className="flex h-full flex-col justify-between rounded-[22px] bg-gradient-to-b from-[#0A2663] to-[#061A44] p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] sm:p-5">
         {/* Compact Header */}
-        <div className="mb-3 flex items-center justify-between gap-2 border-b border-white/[0.1] pb-3">
+        <div className="mb-3 flex items-center justify-between gap-2 border-b border-[#4CE6B8]/20 pb-3">
           <div className="min-w-0">
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[#2DD4BF]">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4CE6B8]">
               <ShieldCheck size={13} weight="regular" aria-hidden="true" />
               Organizer Controls
             </span>
             <h2
               id="admin-dialog-title"
-              className="mt-0.5 truncate font-serif text-2xl leading-none tracking-tight text-[#F8FAFC]"
+              className="mt-0.5 truncate font-serif text-2xl leading-none tracking-tight text-white"
             >
               {activeAdminPin ? 'Manage Stick Draw' : 'Organizer Access'}
             </h2>
@@ -179,7 +179,7 @@ export function AdminDialog({
                 type="button"
                 onClick={() => setActiveAdminPin(null)}
                 aria-label="Lock organizer panel"
-                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/[0.14] bg-white/[0.06] px-3 text-xs font-medium text-[#E2E8F0] transition-colors hover:bg-white/[0.12] active:scale-[0.97]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#4CE6B8]/25 bg-[#0D2E70]/70 px-3 text-xs font-medium text-white transition-colors hover:bg-[#123A88] active:scale-[0.97]"
               >
                 <Lock size={13} weight="regular" aria-hidden="true" />
                 <span>Lock</span>
@@ -189,7 +189,7 @@ export function AdminDialog({
               type="button"
               onClick={onClose}
               aria-label="Close organizer controls"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[#E2E8F0] ring-1 ring-white/[0.12] transition-colors duration-200 hover:bg-white/[0.14] active:scale-[0.97]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#4CE6B8]/25 bg-[#0D2E70]/70 text-white transition-colors duration-200 hover:bg-[#123A88] active:scale-[0.97]"
             >
               <X size={16} weight="light" aria-hidden="true" />
             </button>
@@ -198,7 +198,7 @@ export function AdminDialog({
 
         {!activeAdminPin ? (
           <div className="flex flex-1 flex-col justify-center py-2">
-            <p className="mb-4 text-xs leading-relaxed text-[#CBD5E1] sm:text-sm">
+            <p className="mb-4 text-xs leading-relaxed text-[#B8D0F0] sm:text-sm">
               Enter the Organizer PIN beside the tin to manage names and monitor stick progress
               without spoiling who picked who.
             </p>
@@ -213,11 +213,11 @@ export function AdminDialog({
               <div className="mb-4 flex flex-col gap-1.5">
                 <label
                   htmlFor="admin-pin-input"
-                  className="text-xs font-medium text-[#F8FAFC] sm:text-sm"
+                  className="text-xs font-medium text-white sm:text-sm"
                 >
                   Organizer 4-Digit PIN <span className="text-[#FCA5A5]" aria-hidden="true">*</span>
                 </label>
-                <span id="admin-pin-hint" className="text-xs text-[#CBD5E1]/80">
+                <span id="admin-pin-hint" className="text-xs text-[#B8D0F0]/80">
                   Organizer PIN is 1234
                 </span>
                 <input
@@ -262,10 +262,10 @@ export function AdminDialog({
               <button
                 type="submit"
                 disabled={loginSubmitting}
-                className="atelier-btn group flex w-full items-center justify-between rounded-full bg-[#0F766E] py-1.5 pl-5 pr-1.5 text-sm font-semibold text-[#F8FAFC] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#115E59] active:scale-[0.98] disabled:opacity-60"
+                className="atelier-btn group flex w-full items-center justify-between rounded-full bg-[#4CE6B8] py-1.5 pl-5 pr-1.5 text-sm font-bold text-[#061A44] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#6EF5CD] active:scale-[0.98] disabled:opacity-60"
               >
                 <span>{loginSubmitting ? 'Verifying...' : 'Unlock Organizer Controls'}</span>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/20 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#061A44]/15 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
                   <ArrowUpRight size={16} weight="regular" aria-hidden="true" />
                 </span>
               </button>
@@ -280,7 +280,7 @@ export function AdminDialog({
                 className={`rounded-xl border px-3 py-2 text-xs font-medium ${
                   feedback.isError
                     ? 'border-[#F87171]/60 bg-[#991B1B]/25 text-[#FCA5A5]'
-                    : 'border-[#2DD4BF]/45 bg-[#14B8A6]/15 text-[#F8FAFC]'
+                    : 'border-[#4CE6B8]/45 bg-[#4CE6B8]/15 text-white'
                 }`}
               >
                 {feedback.text}
@@ -288,11 +288,11 @@ export function AdminDialog({
             )}
 
             {/* Compact Progress & Quick Actions Strip */}
-            <div className="rounded-xl border border-white/[0.12] bg-white/[0.04] p-3">
+            <div className="rounded-xl border border-[#4CE6B8]/20 bg-[#061A44]/60 p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xs text-[#CBD5E1]">Sticks Pulled</span>
-                  <span className="font-mono text-xs font-semibold text-[#2DD4BF]">
+                  <span className="text-xs text-[#B8D0F0]">Sticks Pulled</span>
+                  <span className="font-mono text-xs font-semibold text-[#4CE6B8]">
                     {drawnCount} / {total}
                   </span>
                 </div>
@@ -309,7 +309,7 @@ export function AdminDialog({
                           'All sticks returned to the tin! Everyone can pull freshly.'
                         )
                       }
-                      className="inline-flex items-center gap-1 rounded-full border border-white/[0.16] bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-[#F8FAFC] transition-colors hover:bg-white/[0.14] active:scale-[0.98]"
+                      className="inline-flex items-center gap-1 rounded-full border border-[#4CE6B8]/25 bg-[#0D2E70]/70 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#123A88] active:scale-[0.98]"
                     >
                       <ArrowsClockwise size={12} weight="regular" aria-hidden="true" />
                       <span>Re-shuffle</span>
@@ -330,14 +330,14 @@ export function AdminDialog({
                           type="button"
                           disabled={busyAction === 'admin_reset_all'}
                           onClick={handleResetAll}
-                          className="rounded-full bg-[#B91C1C] px-2.5 py-1 text-[11px] font-semibold text-[#F8FAFC] hover:bg-[#991B1B]"
+                          className="rounded-full bg-[#B91C1C] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#991B1B]"
                         >
                           Confirm Clear
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmReset(false)}
-                          className="rounded-full border border-white/[0.16] px-2 py-1 text-[11px] font-medium text-[#CBD5E1] hover:text-[#F8FAFC]"
+                          className="rounded-full border border-[#4CE6B8]/25 px-2 py-1 text-[11px] font-medium text-[#B8D0F0] hover:text-white"
                         >
                           Cancel
                         </button>
@@ -347,9 +347,9 @@ export function AdminDialog({
                 )}
               </div>
 
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.1]">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#061A44]">
                 <div
-                  className="h-full rounded-full bg-[#14B8A6] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
+                  className="h-full rounded-full bg-[#4CE6B8] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
                   style={{ width: `${total > 0 ? (drawnCount / total) * 100 : 0}%` }}
                 />
               </div>
@@ -362,9 +362,9 @@ export function AdminDialog({
               action="/api/event"
               aria-label="Add participant names"
               onSubmit={handleAddSubmit}
-              className="rounded-xl border border-white/[0.12] bg-white/[0.04] p-3"
+              className="rounded-xl border border-[#4CE6B8]/20 bg-[#061A44]/60 p-3"
             >
-              <label htmlFor="admin-add-name" className="mb-1 block text-xs font-medium text-[#F8FAFC]">
+              <label htmlFor="admin-add-name" className="mb-1 block text-xs font-medium text-white">
                 Add Names (comma-separated) <span className="text-[#FCA5A5]" aria-hidden="true">*</span>
               </label>
               <div className="flex items-start gap-2">
@@ -391,7 +391,7 @@ export function AdminDialog({
                 <button
                   type="submit"
                   disabled={busyAction === 'admin_add_participant'}
-                  className="inline-flex h-[40px] shrink-0 items-center gap-1 rounded-full border border-[#2DD4BF]/40 bg-[#0F766E] px-4 text-xs font-semibold text-[#F8FAFC] transition-colors hover:bg-[#115E59] disabled:opacity-60"
+                  className="inline-flex h-[40px] shrink-0 items-center gap-1 rounded-full bg-[#4CE6B8] px-4 text-xs font-bold text-[#061A44] transition-colors hover:bg-[#6EF5CD] disabled:opacity-60"
                 >
                   <Plus size={13} weight="bold" aria-hidden="true" />
                   <span>{busyAction === 'admin_add_participant' ? 'Adding...' : 'Add'}</span>
@@ -401,13 +401,13 @@ export function AdminDialog({
 
             {/* Compact Spoiler-Free Participant Grid */}
             <div className="flex-1">
-              <div className="mb-1.5 flex items-center justify-between text-[11px] text-[#CBD5E1]/80">
-                <span className="font-medium text-[#CBD5E1]">Participants ({total})</span>
+              <div className="mb-1.5 flex items-center justify-between text-[11px] text-[#B8D0F0]/80">
+                <span className="font-medium text-[#B8D0F0]">Participants ({total})</span>
                 <span>Pick status stays hidden</span>
               </div>
 
               {roster.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-white/[0.16] px-3 py-5 text-center text-xs text-[#CBD5E1]/80">
+                <p className="rounded-xl border border-dashed border-[#4CE6B8]/25 px-3 py-5 text-center text-xs text-[#B8D0F0]/80">
                   No names in the Exchange Gift tin yet. Add names above.
                 </p>
               ) : (
@@ -415,9 +415,9 @@ export function AdminDialog({
                   {roster.map((p) => (
                     <li
                       key={p.id}
-                      className="flex items-center justify-between gap-2 rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-xs"
+                      className="flex items-center justify-between gap-2 rounded-xl border border-[#4CE6B8]/20 bg-[#061A44]/60 px-3 py-1.5 text-xs"
                     >
-                      <span className="truncate font-medium text-[#F8FAFC]" title={p.name}>
+                      <span className="truncate font-medium text-white" title={p.name}>
                         {p.name}
                       </span>
                       <button

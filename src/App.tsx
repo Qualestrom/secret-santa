@@ -117,12 +117,12 @@ export default function App() {
   };
 
   return (
-    <div className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-x-hidden overflow-y-auto bg-[#07162C] px-3 py-3 text-[#F8FAFC] sm:px-6 sm:py-4 lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
-      {/* Deep Midnight Blue & Turquoise Ambient Glow */}
+    <div className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-x-hidden overflow-y-auto bg-[#061A44] px-3 py-3 text-white sm:px-6 sm:py-4 lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
+      {/* Deep Royal Navy & Mint-Turquoise Ambient Glow */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-44 left-1/2 h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-[#14B8A6]/[0.15] blur-[140px]" />
-        <div className="absolute bottom-[-160px] left-[-10%] h-[420px] w-[420px] rounded-full bg-[#0284C7]/[0.18] blur-[130px]" />
-        <div className="absolute right-[-8%] top-[30%] h-[380px] w-[380px] rounded-full bg-[#0D9488]/[0.22] blur-[120px]" />
+        <div className="absolute -top-44 left-1/2 h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-[#4CE6B8]/[0.16] blur-[140px]" />
+        <div className="absolute bottom-[-160px] left-[-10%] h-[420px] w-[420px] rounded-full bg-[#153E90]/[0.28] blur-[130px]" />
+        <div className="absolute right-[-8%] top-[30%] h-[380px] w-[380px] rounded-full bg-[#20B486]/[0.18] blur-[120px]" />
       </div>
 
       {/* Gentle Shimmer Particles */}
@@ -134,13 +134,13 @@ export default function App() {
           type="button"
           onClick={handleCrestTap}
           aria-label="Exchange Gift Crest"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0D9488] text-[#F8FAFC] shadow-[0_4px_18px_rgba(20,184,166,0.45)] ring-2 ring-[#5EEAD4]/70 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.93]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4CE6B8] text-[#061A44] shadow-[0_4px_18px_rgba(76,230,184,0.45)] ring-2 ring-white/80 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.93]"
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
             <path
               d="M12 3L14.4 8.8L20.6 9.3L15.9 13.4L17.3 19.5L12 16.2L6.7 19.5L8.1 13.4L3.4 9.3L9.6 8.8L12 3Z"
-              fill="#F8FAFC"
-              stroke="#0B213F"
+              fill="#061A44"
+              stroke="#061A44"
               strokeWidth="1.2"
               strokeLinejoin="round"
             />
@@ -148,11 +148,18 @@ export default function App() {
         </button>
 
         <div onClick={handleCrestTap} className="select-none text-left">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#2DD4BF]">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#4CE6B8]">
             Gift Exchange
           </p>
-          <p className="font-serif text-2xl leading-none text-[#F8FAFC] sm:text-3xl">
-            {state?.eventName || 'Exchange Gift'}
+          <p className="font-serif text-2xl leading-none text-white sm:text-3xl">
+            {!state?.eventName || state.eventName.toLowerCase() === 'exchange gift' ? (
+              <>
+                <span className="text-white">Exchange </span>
+                <span className="text-[#4CE6B8]">Gift</span>
+              </>
+            ) : (
+              state.eventName
+            )}
           </p>
         </div>
       </div>

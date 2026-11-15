@@ -12,8 +12,8 @@
 
 html,
 body {
-  background-color: #07162C;
-  color: #F8FAFC;
+  background-color: #061A44;
+  color: #FFFFFF;
   font-family: var(--font-sans);
   overflow-x: hidden;
   min-height: 100dvh;
@@ -88,9 +88,9 @@ body {
   font: inherit;
   font-size: max(1rem, 1em);
   min-height: 48px;
-  color: #F8FAFC;
-  background-color: rgba(240, 253, 250, 0.06);
-  border: 1.5px solid rgba(45, 212, 191, 0.48);
+  color: #FFFFFF;
+  background-color: rgba(6, 26, 68, 0.65);
+  border: 1.5px solid rgba(76, 230, 184, 0.45);
   border-radius: 14px;
   padding: 0.75rem 1rem;
   transition: border-color 180ms var(--ease-festive), background-color 180ms var(--ease-festive);
@@ -101,7 +101,7 @@ body {
   font: inherit;
   font-size: max(1rem, 1em);
   min-height: 48px;
-  color: #0B213F;
+  color: #061A44;
   background-color: #FFFFFF;
   border: 1.5px solid #64748B;
   border-radius: 14px;
@@ -110,7 +110,7 @@ body {
 }
 
 .atelier-input::placeholder {
-  color: rgba(204, 251, 241, 0.56);
+  color: rgba(184, 208, 240, 0.55);
 }
 
 .atelier-input-light::placeholder {
@@ -118,27 +118,27 @@ body {
 }
 
 .atelier-input:hover {
-  border-color: rgba(45, 212, 191, 0.78);
+  border-color: #4CE6B8;
 }
 
 .atelier-input-light:hover {
-  border-color: #0D9488;
+  border-color: #20B486;
 }
 
 .atelier-input:focus-visible,
 .atelier-input-light:focus-visible,
 button:focus-visible {
-  outline: 2.5px solid #2DD4BF;
+  outline: 2.5px solid #4CE6B8;
   outline-offset: 2px;
 }
 
 :is(:user-invalid, .user-invalid-fallback) {
   border-color: #F87171 !important;
-  background-color: rgba(220, 38, 38, 0.1) !important;
+  background-color: rgba(220, 38, 38, 0.14) !important;
 }
 
 :is(:user-valid, .user-valid-fallback) {
-  border-color: #2DD4BF;
+  border-color: #4CE6B8;
 }
 
 .error-msg {
@@ -152,7 +152,7 @@ button:focus-visible {
 }
 
 .parchment-card .error-msg {
-  color: #B91C1C;
+  color: #FCA5A5;
 }
 
 :is(:user-invalid, .user-invalid-fallback) + .error-msg {
@@ -183,8 +183,8 @@ button:focus-visible {
 
 /* Modern Web Guidance: Custom Scrollbar */
 .admin-roster-scroll {
-  --scrollbar-thumb: #2dd4bf;
-  --scrollbar-track: #07162c;
+  --scrollbar-thumb: #4CE6B8;
+  --scrollbar-track: #061A44;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }

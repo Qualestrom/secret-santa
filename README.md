@@ -1,37 +1,40 @@
-# Secret Santa Name Draw (Vercel + Vercel Storage)
+# Secret Santa Name Draw (React + Vite + Vercel Storage)
 
-A simple, mobile-friendly two-phase Secret Santa website designed for hosting on **Vercel** with **Vercel Storage (Upstash Redis)** so nothing is stored on your computer.
+A refined two-phase Secret Santa name drawing web application built with **React 19, TypeScript, Vite, Tailwind CSS v4**, and **Vercel Storage (Upstash Redis)**.
 
 ## Features
-- **Phase 1 — Self-Registration:** Everyone opens the shared link on their own phone or computer, enters their name, and sets a 4-digit PIN. The participant lobby updates live.
-- **Phase 2 — Private Hat Draw:** Once everyone is in, the organizer locks registration and generates a randomized single-cycle derangement (nobody can draw themselves, and nobody gets stuck at the end). Participants tap their name and enter their 4-digit PIN to reveal who they are gifting to.
-- **Spoiler-Free Organizer Controls:** Protected by an Organizer PIN (default `1234`, changeable in settings). View how many people have drawn without seeing any matches, add/remove participants, reset forgotten PINs, re-shuffle, or reset the event.
-- **Zero-dependency Serverless Backend:** `api/event.js` uses native `fetch` against Vercel Storage / Upstash Redis REST environment variables (`KV_REST_API_URL` / `KV_REST_API_TOKEN` or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`), with an automatic local temp-file fallback for testing on your machine.
+- **Phase 1 — Guest Registry:** Participants open the shared link on their phone or computer, enter their name, and create a private 4-digit PIN. The guest ledger updates live across devices.
+- **Phase 2 — Sealed Correspondence Draw:** Once everyone has joined, the organizer locks registration and generates a randomized single-cycle derangement (nobody can draw themselves, and nobody gets stuck at the end). Each participant selects their envelope and verifies with their 4-digit PIN to unseal their match.
+- **Hidden Organizer Console:** No visible admin button appears in the public UI. Organizers open the console secretly via any of three triggers (see below) and verify with the Organizer PIN (default `1234`, changeable in settings).
+- **Zero-dependency Serverless Storage:** `api/event.js` connects to Vercel Storage / Upstash Redis (`KV_REST_API_URL` & `KV_REST_API_TOKEN`, or `UPSTASH_REDIS_REST_URL` & `UPSTASH_REDIS_REST_TOKEN`) via native `fetch`, with an automatic local temp-file fallback during local `npm run dev`.
+
+---
+
+## Hidden Organizer Access
+
+The Organizer Console is intentionally hidden from guests. Open it using any of these three methods:
+
+1. **5-Tap Crest Gesture (Mobile & Desktop):** Tap or click the crimson wax seal emblem in the top-left header **5 times within 2.5 seconds**.
+2. **Direct URL Trigger:** Visit `https://your-site.vercel.app/?admin=1` or `/#admin` (the query/hash is automatically cleared from the address bar on load).
+3. **Keyboard Shortcut (Desktop):** Press **`Ctrl + Shift + A`** (or **`Cmd + Shift + A`** on macOS).
+
+*Default initial Organizer PIN is `1234`. Change it inside **Exchange Settings** once unlocked.*
 
 ---
 
 ## Run Locally
 
 ```bash
+npm install
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000) in your browser.
-*(When running locally without Vercel Storage environment variables, state is stored in your OS temp folder so you can test the full flow right away.)*
+Open [http://localhost:5173](http://localhost:5173). Vite automatically mounts `/api/event` via `vite.config.ts`.
 
 ---
 
 ## Deploy to Vercel + Connect Vercel Storage
 
-1. **Push or import this folder to Vercel**
-   - Create a GitHub repo (or deploy directly using `npx vercel`) and import the project into [Vercel](https://vercel.com).
-   - Leave the Framework Preset as **Other** (the included `vercel.json` sets `"outputDirectory": "public"` and mounts `/api/event`).
-2. **Add Vercel Storage (Upstash Redis)**
-   - Open your project in the **Vercel Dashboard**.
-   - Go to the **Storage** tab → **Create Database** → select **Upstash** → **Upstash for Redis** (free tier is plenty).
-   - Connect it to your project. Vercel automatically adds `KV_REST_API_URL` & `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` & `UPSTASH_REDIS_REST_TOKEN`) to your project's Environment Variables.
-3. **Redeploy**
-   - Trigger one redeploy in Vercel (Deployments → Redeploy) so the live deployment picks up the new storage environment variables.
-   - Check the footer on your live site—it will display **`Synced via Vercel Storage`**.
-4. **Customize for Your Client**
-   - Click **Organizer / Admin** (top right), enter the default PIN `1234`, and update the **Event Title**, **Gift Budget/Date Note**, and **Organizer PIN** before sharing the link with participants.
+1. **Import to Vercel:** Import `Qualestrom/secret-santa` in Vercel. Leave Build Command as `npm run build` and Output Directory as `dist` (`vercel.json` configures both plus `/api` routing).
+2. **Connect Upstash Redis:** Go to your Vercel project's **Storage** tab → **Create Database** → **Upstash** → **Upstash for Redis** (select Frankfurt `eu-central-1` or Middle East if available for Kuwait clients).
+3. **Redeploy:** Redeploy once after linking storage so Vercel injects the `KV_REST_API_*` / `UPSTASH_REDIS_REST_*` environment variables.

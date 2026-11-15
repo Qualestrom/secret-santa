@@ -12,8 +12,8 @@
 
 html,
 body {
-  background-color: #0F291E;
-  color: #FFFDF9;
+  background-color: #07162C;
+  color: #F8FAFC;
   font-family: var(--font-sans);
   overflow-x: hidden;
   min-height: 100dvh;
@@ -88,9 +88,9 @@ body {
   font: inherit;
   font-size: max(1rem, 1em);
   min-height: 48px;
-  color: #FFFDF9;
-  background-color: rgba(255, 253, 249, 0.06);
-  border: 1.5px solid rgba(217, 155, 38, 0.32);
+  color: #F8FAFC;
+  background-color: rgba(240, 253, 250, 0.06);
+  border: 1.5px solid rgba(45, 212, 191, 0.48);
   border-radius: 14px;
   padding: 0.75rem 1rem;
   transition: border-color 180ms var(--ease-festive), background-color 180ms var(--ease-festive);
@@ -101,44 +101,44 @@ body {
   font: inherit;
   font-size: max(1rem, 1em);
   min-height: 48px;
-  color: #1B2E24;
+  color: #0B213F;
   background-color: #FFFFFF;
-  border: 1.5px solid #D8CBB5;
+  border: 1.5px solid #64748B;
   border-radius: 14px;
   padding: 0.8rem 1rem;
   transition: border-color 180ms var(--ease-festive), background-color 180ms var(--ease-festive);
 }
 
 .atelier-input::placeholder {
-  color: rgba(247, 239, 225, 0.45);
+  color: rgba(204, 251, 241, 0.56);
 }
 
 .atelier-input-light::placeholder {
-  color: #8A7F6E;
+  color: #475569;
 }
 
 .atelier-input:hover {
-  border-color: rgba(217, 155, 38, 0.58);
+  border-color: rgba(45, 212, 191, 0.78);
 }
 
 .atelier-input-light:hover {
-  border-color: #A68A5B;
+  border-color: #0D9488;
 }
 
 .atelier-input:focus-visible,
 .atelier-input-light:focus-visible,
 button:focus-visible {
-  outline: 2.5px solid #D99B26;
+  outline: 2.5px solid #2DD4BF;
   outline-offset: 2px;
 }
 
 :is(:user-invalid, .user-invalid-fallback) {
-  border-color: #DC2626 !important;
-  background-color: rgba(220, 38, 38, 0.08) !important;
+  border-color: #F87171 !important;
+  background-color: rgba(220, 38, 38, 0.1) !important;
 }
 
 :is(:user-valid, .user-valid-fallback) {
-  border-color: #16A34A;
+  border-color: #2DD4BF;
 }
 
 .error-msg {
@@ -167,12 +167,26 @@ button:focus-visible {
   }
 }
 
+@media (forced-colors: active) {
+  .atelier-input,
+  .atelier-input-light,
+  .atelier-btn {
+    border: 1.5px solid ButtonText;
+  }
+
+  .atelier-input:focus-visible,
+  .atelier-input-light:focus-visible,
+  button:focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
 /* Modern Web Guidance: Native Modal <dialog> top-layer containment */
 dialog.atelier-dialog {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #FFFDF9;
+  color: #F8FAFC;
   margin: auto;
   width: min(94vw, 660px);
   max-height: 90dvh;
@@ -186,7 +200,7 @@ dialog.atelier-dialog:modal {
 dialog.atelier-dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
-  background-color: rgba(8, 22, 16, 0.8);
+  background-color: rgba(4, 12, 26, 0.82);
   backdrop-filter: blur(8px);
 }
 

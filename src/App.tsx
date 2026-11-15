@@ -33,7 +33,7 @@ export default function App() {
       const next = await fetchEventState();
       applyNewState(next);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Unable to sync Christmas event.');
+      setLoadError(err instanceof Error ? err.message : 'Unable to sync Exchange Gift event.');
     } finally {
       fetchingRef.current = false;
     }
@@ -88,7 +88,12 @@ export default function App() {
   // Sync browser document title
   useEffect(() => {
     if (state?.eventName) {
-      document.title = `${state.eventName} · Secret Santa`;
+      document.title =
+        state.eventName.toLowerCase() === 'exchange gift'
+          ? 'Exchange Gift'
+          : `${state.eventName} · Exchange Gift`;
+    } else {
+      document.title = 'Exchange Gift';
     }
   }, [state?.eventName]);
 
@@ -108,15 +113,15 @@ export default function App() {
   };
 
   return (
-    <div className="relative flex h-[100dvh] max-h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-[#0F291E] px-3 py-2 text-[#FFFDF9] sm:px-6 sm:py-4">
-      {/* Warm Christmas Evergreen & Candlelight Glow */}
+    <div className="relative flex h-[100dvh] max-h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-[#07162C] px-3 py-2 text-[#F8FAFC] sm:px-6 sm:py-4">
+      {/* Deep Midnight Blue & Turquoise Ambient Glow */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-44 left-1/2 h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-[#D99B26]/[0.11] blur-[140px]" />
-        <div className="absolute bottom-[-160px] left-[-10%] h-[420px] w-[420px] rounded-full bg-[#B91C1C]/[0.16] blur-[130px]" />
-        <div className="absolute right-[-8%] top-[30%] h-[380px] w-[380px] rounded-full bg-[#1E5B3E]/[0.45] blur-[120px]" />
+        <div className="absolute -top-44 left-1/2 h-[520px] w-[720px] -translate-x-1/2 rounded-full bg-[#14B8A6]/[0.15] blur-[140px]" />
+        <div className="absolute bottom-[-160px] left-[-10%] h-[420px] w-[420px] rounded-full bg-[#0284C7]/[0.18] blur-[130px]" />
+        <div className="absolute right-[-8%] top-[30%] h-[380px] w-[380px] rounded-full bg-[#0D9488]/[0.22] blur-[120px]" />
       </div>
 
-      {/* Gentle Snowfall Particles */}
+      {/* Gentle Shimmer Particles */}
       <SnowfallLayer />
 
       {/* Centered Top Website Title Only (No Header Bar, No Budget/Status Pills) */}
@@ -124,14 +129,14 @@ export default function App() {
         <button
           type="button"
           onClick={handleCrestTap}
-          aria-label="Christmas Gift Exchange Crest"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#B91C1C] text-[#FFFDF9] shadow-[0_4px_16px_rgba(185,28,28,0.45)] ring-2 ring-[#D99B26]/70 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.93]"
+          aria-label="Exchange Gift Crest"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0D9488] text-[#F8FAFC] shadow-[0_4px_18px_rgba(20,184,166,0.45)] ring-2 ring-[#5EEAD4]/70 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.93]"
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
             <path
               d="M12 3L14.4 8.8L20.6 9.3L15.9 13.4L17.3 19.5L12 16.2L6.7 19.5L8.1 13.4L3.4 9.3L9.6 8.8L12 3Z"
-              fill="#FFFDF9"
-              stroke="#D99B26"
+              fill="#F8FAFC"
+              stroke="#0B213F"
               strokeWidth="1.2"
               strokeLinejoin="round"
             />
@@ -139,11 +144,11 @@ export default function App() {
         </button>
 
         <div onClick={handleCrestTap} className="select-none text-left">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D99B26]">
-            Secret Santa
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#2DD4BF]">
+            Gift Exchange
           </p>
-          <p className="font-serif text-2xl leading-none text-[#FFFDF9] sm:text-3xl">
-            {state?.eventName || 'Christmas Secret Santa'}
+          <p className="font-serif text-2xl leading-none text-[#F8FAFC] sm:text-3xl">
+            {state?.eventName || 'Exchange Gift'}
           </p>
         </div>
       </div>
@@ -157,8 +162,8 @@ export default function App() {
             <div className="h-44 w-full animate-pulse rounded-2xl bg-white/[0.06]" />
           </div>
         ) : loadError && !state ? (
-          <div className="mx-auto max-w-md rounded-2xl border border-[#B91C1C]/50 bg-[#B91C1C]/20 p-6 text-center text-sm text-[#FCA5A5]">
-            <p className="font-semibold">Unable to load Christmas event</p>
+          <div className="mx-auto max-w-md rounded-2xl border border-[#F87171]/50 bg-[#991B1B]/25 p-6 text-center text-sm text-[#FCA5A5]">
+            <p className="font-semibold">Unable to load Exchange Gift event</p>
             <p className="mt-1 opacity-90">{loadError}</p>
           </div>
         ) : state ? (

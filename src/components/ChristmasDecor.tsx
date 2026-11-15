@@ -21,7 +21,7 @@ export function SnowfallLayer() {
       {flakes.map((flake, idx) => (
         <span
           key={idx}
-          className="snowflake-particle absolute top-0 rounded-full bg-[#FFFDF9]/50"
+          className="snowflake-particle absolute top-0 rounded-full bg-[#5EEAD4]/40"
           style={{
             left: flake.left,
             width: `${flake.size}px`,
@@ -43,33 +43,41 @@ export function HollySprig({ className = '' }: { className?: string }) {
       className={className}
       aria-hidden="true"
     >
-      {/* Left leaf */}
+      {/* Left tapered turquoise ribbon wing */}
       <path
-        d="M40 16C34 9 23 7 15 11C19 14 19 18 14 21C22 23 33 21 40 16Z"
-        fill="#1E5B3E"
-        stroke="#0F291E"
+        d="M36 16C28 11 19 10 10 13.5C15 15 15 17 10 18.5C19 22 28 21 36 16Z"
+        fill="#14B8A6"
+        stroke="#0B213F"
         strokeWidth="1.2"
+        strokeLinejoin="round"
       />
-      {/* Right leaf */}
+      {/* Right tapered turquoise ribbon wing */}
       <path
-        d="M48 16C54 9 65 7 73 11C69 14 69 18 74 21C66 23 55 21 48 16Z"
-        fill="#1E5B3E"
-        stroke="#0F291E"
+        d="M52 16C60 11 69 10 78 13.5C73 15 73 17 78 18.5C69 22 60 21 52 16Z"
+        fill="#14B8A6"
+        stroke="#0B213F"
         strokeWidth="1.2"
+        strokeLinejoin="round"
       />
-      {/* Gold accent veins */}
+      {/* Deep navy filigree accent lines */}
       <path
-        d="M19 16L37 16M51 16L69 16"
-        stroke="#D99B26"
-        strokeOpacity="0.65"
-        strokeWidth="1"
+        d="M17 16H33M55 16H71"
+        stroke="#0B213F"
+        strokeOpacity="0.55"
+        strokeWidth="1.1"
         strokeLinecap="round"
       />
-      {/* Three holly berries */}
-      <circle cx="44" cy="13.5" r="3.4" fill="#B91C1C" />
-      <circle cx="40.5" cy="18.5" r="3.2" fill="#991B1B" />
-      <circle cx="47.5" cy="18.5" r="3.2" fill="#DC2626" />
-      <circle cx="43.2" cy="12.5" r="0.9" fill="#FFFDF9" fillOpacity="0.7" />
+      {/* Center 4-point geometric star ornament */}
+      <path
+        d="M44 6.5L46.8 13.2L53.5 16L46.8 18.8L44 25.5L41.2 18.8L34.5 16L41.2 13.2L44 6.5Z"
+        fill="#0B213F"
+        stroke="#2DD4BF"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <circle cx="44" cy="16" r="2.2" fill="#2DD4BF" />
+      <circle cx="30" cy="16" r="1.4" fill="#F8FAFC" fillOpacity="0.85" />
+      <circle cx="58" cy="16" r="1.4" fill="#F8FAFC" fillOpacity="0.85" />
     </svg>
   );
 }
@@ -83,8 +91,8 @@ export function WaitingStickCup({ stickCount }: { stickCount: number }) {
       className="relative mx-auto h-48 w-56 select-none"
       aria-hidden="true"
     >
-      {/* Warm golden glow behind cup */}
-      <div className="pointer-events-none absolute bottom-4 left-1/2 h-28 w-36 -translate-x-1/2 rounded-full bg-[#D99B26]/20 blur-2xl" />
+      {/* Turquoise luminescence glow behind cup */}
+      <div className="pointer-events-none absolute bottom-4 left-1/2 h-28 w-36 -translate-x-1/2 rounded-full bg-[#14B8A6]/25 blur-2xl" />
 
       {/* Layer 1 (Back): Tin Cup Dark Interior & Back Rim */}
       <svg
@@ -97,8 +105,8 @@ export function WaitingStickCup({ stickCount }: { stickCount: number }) {
           cy="16"
           rx="68"
           ry="12"
-          fill="#3E0909"
-          stroke="#D99B26"
+          fill="#061326"
+          stroke="#2DD4BF"
           strokeWidth="2.2"
         />
         <ellipse
@@ -106,8 +114,8 @@ export function WaitingStickCup({ stickCount }: { stickCount: number }) {
           cy="17"
           rx="61"
           ry="8.5"
-          fill="#260505"
-          fillOpacity="0.65"
+          fill="#030914"
+          fillOpacity="0.85"
         />
       </svg>
 
@@ -137,8 +145,8 @@ export function WaitingStickCup({ stickCount }: { stickCount: number }) {
                   } as React.CSSProperties
                 }
               >
-                <div className="h-4 w-full bg-gradient-to-b from-[#DC2626] to-[#B91C1C]" />
-                <div className="h-1 w-full bg-[#D99B26]" />
+                <div className="h-4 w-full bg-gradient-to-b from-[#2DD4BF] to-[#0D9488]" />
+                <div className="h-1 w-full bg-[#0B213F]" />
               </div>
             </div>
           );
@@ -148,31 +156,35 @@ export function WaitingStickCup({ stickCount }: { stickCount: number }) {
       {/* Layer 3 (Front): Tin Cup Front Wall Covering Lower Stick Stems */}
       <svg
         viewBox="0 0 180 112"
-        className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-[112px] w-[180px] -translate-x-1/2 drop-shadow-[0_14px_24px_rgba(15,41,30,0.28)]"
+        className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-[112px] w-[180px] -translate-x-1/2 drop-shadow-[0_14px_24px_rgba(7,22,44,0.34)]"
         fill="none"
       >
         <path
           d="M22 16A68 12 0 0 0 158 16L144 96C142.5 104 119 110 90 110C61 110 37.5 104 36 96L22 16Z"
           fill="url(#waitingCupFrontGrad)"
-          stroke="#D99B26"
+          stroke="#2DD4BF"
           strokeWidth="2.1"
         />
-        {/* Highlighted Front Gold Lip */}
+        {/* Highlighted Front Aqua Lip */}
         <path
           d="M22 16A68 12 0 0 0 158 16"
-          stroke="#FDE68A"
-          strokeOpacity="0.65"
+          stroke="#99F6E4"
+          strokeOpacity="0.7"
           strokeWidth="1.2"
           strokeLinecap="round"
         />
-        {/* Decorative Gold Band */}
+        {/* Decorative Turquoise Band */}
         <path
           d="M28 50C47 57 68 59 90 59C112 59 133 57 152 50L150 64C132 71 111 73 90 73C69 73 48 71 30 64L28 50Z"
-          fill="#D99B26"
+          fill="#14B8A6"
         />
-        {/* Center Evergreen Emblem */}
-        <circle cx="90" cy="60" r="13.5" fill="#0F291E" stroke="#FFFDF9" strokeWidth="1.6" />
-        <path d="M90 50.5L95.5 59H92.2L96.8 65.5H83.2L87.8 59H84.5L90 50.5Z" fill="#D99B26" />
+        {/* Center Geometric Star Medallion */}
+        <circle cx="90" cy="60" r="13.5" fill="#07162C" stroke="#5EEAD4" strokeWidth="1.6" />
+        <path
+          d="M90 50L92.7 57.3L100 60L92.7 62.7L90 70L87.3 62.7L80 60L87.3 57.3L90 50Z"
+          fill="#2DD4BF"
+        />
+        <circle cx="90" cy="60" r="1.8" fill="#F8FAFC" />
         <defs>
           <linearGradient
             id="waitingCupFrontGrad"
@@ -182,9 +194,9 @@ export function WaitingStickCup({ stickCount }: { stickCount: number }) {
             y2="108"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stopColor="#DC2626" />
-            <stop offset="0.52" stopColor="#B91C1C" />
-            <stop offset="1" stopColor="#7F1D1D" />
+            <stop stopColor="#133463" />
+            <stop offset="0.52" stopColor="#0B213F" />
+            <stop offset="1" stopColor="#061326" />
           </linearGradient>
         </defs>
       </svg>

@@ -174,13 +174,13 @@ export function StickPackStage({
     };
   }, [prefersReducedMotion, savedDraw, stickCount, pullingStick, isShaking, hoveredStick]);
 
-  const fireChristmasConfetti = () => {
+  const fireCelebrationConfetti = () => {
     if (prefersReducedMotion) return;
     confetti({
       particleCount: 65,
       spread: 74,
       origin: { y: 0.56 },
-      colors: ['#B91C1C', '#D99B26', '#1E5B3E', '#FFFDF9'],
+      colors: ['#14B8A6', '#0D9488', '#2DD4BF', '#0B213F', '#38BDF8'],
       disableForReducedMotion: true,
     });
   };
@@ -238,7 +238,7 @@ export function StickPackStage({
       setSavedDraw(record);
       setHideMatchText(false);
       onStateUpdate(result.state);
-      fireChristmasConfetti();
+      fireCelebrationConfetti();
     } catch (err) {
       setDrawError(err instanceof ApiError ? err.message : 'Unable to pull a stick right now.');
     } finally {
@@ -263,7 +263,7 @@ export function StickPackStage({
       setSavedDraw(record);
       setHideMatchText(false);
       onStateUpdate(result.state);
-      fireChristmasConfetti();
+      fireCelebrationConfetti();
     } catch (err) {
       setDrawError(err instanceof ApiError ? err.message : 'Unable to swap sticks right now.');
     } finally {
@@ -285,8 +285,8 @@ export function StickPackStage({
   const activeHintStick = pullingStick ?? hoveredStick ?? peekStick;
 
   return (
-    <div className="parchment-card w-full max-w-xl rounded-[28px] bg-[#D99B26]/25 p-1.5 shadow-[0_26px_64px_-15px_rgba(0,0,0,0.55)]">
-      <div className="rounded-[22px] border border-[#D99B26]/35 bg-[#FFFDF9] p-4 text-[#1B2E24] sm:p-6">
+    <div className="parchment-card w-full max-w-xl rounded-[28px] bg-[#14B8A6]/25 p-1.5 shadow-[0_26px_64px_-15px_rgba(0,0,0,0.55)]">
+      <div className="rounded-[22px] border border-[#14B8A6]/35 bg-[#F8FAFC] p-4 text-[#0B213F] sm:p-6">
         <AnimatePresence mode="wait">
           {!savedDraw ? (
             <motion.div
@@ -300,27 +300,27 @@ export function StickPackStage({
               {/* Compact Editorial Header */}
               <div className="mx-auto flex max-w-[44ch] flex-col items-center">
                 <HollySprig className="mb-1 h-5 w-16" />
-                <h1 className="font-serif text-3xl leading-none text-[#143D2B] sm:text-4xl">
+                <h1 className="font-serif text-3xl leading-none text-[#0B213F] sm:text-4xl">
                   {isAllPicked ? 'All Sticks Drawn!' : 'Pick a Stick from the Pack'}
                 </h1>
-                <p className="mt-1.5 text-xs leading-snug text-[#4E5F54] sm:text-sm">
+                <p className="mt-1.5 text-xs leading-snug text-[#334E68] sm:text-sm">
                   {totalCount === 0
                     ? 'Give the wooden sticks a playful shake while the organizer adds the names.'
                     : isAllPicked
-                      ? 'Every name in the Christmas tin has been claimed with zero duplicates.'
-                      : 'Tap any wooden stick tucked inside the Christmas tin to reveal your Secret Santa match.'}
+                      ? 'Every name in the Exchange Gift tin has been claimed with zero duplicates.'
+                      : 'Tap any wooden stick tucked inside the tin to reveal who you are gifting.'}
                 </p>
 
                 {/* Live Pool Counter Pill */}
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#143D2B]/[0.07] px-3 py-1 font-mono text-[11px] font-semibold text-[#143D2B]">
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#0B213F]/[0.07] px-3 py-1 font-mono text-[11px] font-semibold text-[#0B213F]">
                   <span
                     aria-hidden="true"
                     className={`h-1.5 w-1.5 rounded-full ${
                       totalCount === 0
-                        ? 'bg-[#D99B26]'
+                        ? 'bg-[#0284C7]'
                         : remainingCount > 0
-                          ? 'bg-[#16A34A]'
-                          : 'bg-[#B91C1C]'
+                          ? 'bg-[#0D9488]'
+                          : 'bg-[#0B213F]'
                     }`}
                   />
                   {totalCount === 0
@@ -346,14 +346,14 @@ export function StickPackStage({
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 font-mono text-[10px] font-semibold transition-all duration-200 ${
                       hoveredStick !== null || pullingStick !== null
-                        ? 'border-[#B91C1C]/35 bg-[#FEF2F2] text-[#B91C1C] shadow-xs'
-                        : 'border-[#D99B26]/35 bg-[#F7EFE1]/90 text-[#5B3A1B]'
+                        ? 'border-[#0D9488]/40 bg-[#F0FDFA] text-[#0F766E] shadow-xs'
+                        : 'border-[#0B213F]/15 bg-[#E2E8F0]/85 text-[#0B213F]'
                     }`}
                   >
                     <Sparkle
                       size={11}
                       weight="fill"
-                      className={activeHintStick !== null ? 'text-[#B91C1C]' : 'text-[#D99B26]'}
+                      className={activeHintStick !== null ? 'text-[#0D9488]' : 'text-[#14B8A6]'}
                       aria-hidden="true"
                     />
                     {pullingStick !== null
@@ -361,17 +361,17 @@ export function StickPackStage({
                       : hoveredStick !== null
                         ? `Tap to Pull Stick #${String(hoveredStick + 1).padStart(2, '0')}`
                         : isShaking
-                          ? 'Shaking the Christmas Tin...'
+                          ? 'Shaking the Gift Tin...'
                           : isAllPicked
                             ? 'Pack Complete'
                             : 'Tap a stick or shake the tin'}
                   </span>
                 </div>
 
-                {/* Warm Candlelight Glow Behind Tin */}
+                {/* Turquoise Ambient Glow Behind Tin */}
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute bottom-4 left-1/2 h-36 w-52 -translate-x-1/2 rounded-full bg-[#D99B26]/22 blur-2xl"
+                  className="pointer-events-none absolute bottom-4 left-1/2 h-36 w-52 -translate-x-1/2 rounded-full bg-[#14B8A6]/25 blur-2xl"
                 />
 
                 {/* Animated Tin + Sticks Shake Wrapper */}
@@ -404,8 +404,8 @@ export function StickPackStage({
                       cy="18"
                       rx="76"
                       ry="13"
-                      fill="#3F0909"
-                      stroke="#D99B26"
+                      fill="#061326"
+                      stroke="#2DD4BF"
                       strokeWidth="2.2"
                     />
                     <ellipse
@@ -413,8 +413,8 @@ export function StickPackStage({
                       cy="19"
                       rx="69"
                       ry="9.5"
-                      fill="#230404"
-                      fillOpacity="0.82"
+                      fill="#030914"
+                      fillOpacity="0.88"
                     />
                   </svg>
 
@@ -493,7 +493,7 @@ export function StickPackStage({
                             style={{
                               zIndex: isPulling ? 28 : isHovered ? 26 : 10 + idx,
                             }}
-                            className="group absolute bottom-0 left-0 -ml-4 h-[146px] w-8 origin-bottom cursor-pointer rounded-t-full border border-[#8D643B]/55 bg-gradient-to-r from-[#D8AC7B] via-[#F4DEC0] to-[#C39363] shadow-[0_5px_12px_rgba(27,46,36,0.22)] transition-shadow duration-200 hover:shadow-[0_10px_20px_rgba(185,28,28,0.28)] focus-visible:outline-2 focus-visible:outline-[#B91C1C] disabled:cursor-wait"
+                            className="group absolute bottom-0 left-0 -ml-4 h-[146px] w-8 origin-bottom cursor-pointer rounded-t-full border border-[#8D643B]/55 bg-gradient-to-r from-[#D8AC7B] via-[#F4DEC0] to-[#C39363] shadow-[0_5px_12px_rgba(7,22,44,0.22)] transition-shadow duration-200 hover:shadow-[0_10px_20px_rgba(13,148,136,0.28)] focus-visible:outline-2 focus-visible:outline-[#0D9488] disabled:cursor-wait"
                           >
                             {/* Non-colliding Ambient Breathing Wrapper */}
                             <motion.div
@@ -520,14 +520,14 @@ export function StickPackStage({
                                   : { duration: 0.15 }
                               }
                             >
-                              <span className="relative h-6 w-full bg-gradient-to-b from-[#DC2626] via-[#C81E1E] to-[#991B1B]">
+                              <span className="relative h-6 w-full bg-gradient-to-b from-[#2DD4BF] via-[#14B8A6] to-[#0D9488]">
                                 <span
                                   aria-hidden="true"
-                                  className="absolute inset-y-1 left-1 w-1 rounded-full bg-white/30"
+                                  className="absolute inset-y-1 left-1 w-1 rounded-full bg-white/35"
                                 />
                               </span>
-                              <span className="h-1 w-full bg-[#D99B26]" />
-                              <span className="mt-2 font-mono text-[9.5px] font-bold tracking-tight text-[#5F3C1C]">
+                              <span className="h-1 w-full bg-[#0B213F]" />
+                              <span className="mt-2 font-mono text-[9.5px] font-bold tracking-tight text-[#0B213F]">
                                 {String(idx + 1).padStart(2, '0')}
                               </span>
                               <Star
@@ -535,8 +535,8 @@ export function StickPackStage({
                                 weight="fill"
                                 className={`mt-1 transition-transform duration-200 ${
                                   isHovered || isPeeking
-                                    ? 'scale-125 text-[#B91C1C]'
-                                    : 'text-[#B91C1C]/75'
+                                    ? 'scale-125 text-[#0D9488]'
+                                    : 'text-[#0D9488]/75'
                                 }`}
                                 aria-hidden="true"
                               />
@@ -554,39 +554,40 @@ export function StickPackStage({
                   {/* LAYER 3 (z-30, pointer-events-none): Tin Cup Front Wall */}
                   <svg
                     viewBox="0 0 212 116"
-                    className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-[116px] w-[212px] -translate-x-1/2 drop-shadow-[0_14px_24px_rgba(15,41,30,0.28)]"
+                    className="pointer-events-none absolute bottom-0 left-1/2 z-30 h-[116px] w-[212px] -translate-x-1/2 drop-shadow-[0_14px_24px_rgba(7,22,44,0.34)]"
                     fill="none"
                     aria-hidden="true"
                   >
                     <path
                       d="M30 18A76 13 0 0 0 182 18L165 100C163 108 138 113 106 113C74 113 49 108 47 100L30 18Z"
                       fill="url(#compactTinFrontGrad)"
-                      stroke="#D99B26"
+                      stroke="#2DD4BF"
                       strokeWidth="2.2"
                     />
                     <path
                       d="M30 18A76 13 0 0 0 182 18"
-                      stroke="#FDE68A"
+                      stroke="#99F6E4"
                       strokeOpacity="0.72"
                       strokeWidth="1.3"
                       strokeLinecap="round"
                     />
                     <path
                       d="M37 52C57 59 81 61 106 61C131 61 155 59 175 52L172 68C153 75 130 77 106 77C82 77 59 75 40 68L37 52Z"
-                      fill="#D99B26"
+                      fill="#14B8A6"
                     />
                     <circle
                       cx="106"
                       cy="64"
                       r="15.5"
-                      fill="#0F291E"
-                      stroke="#FFFDF9"
+                      fill="#07162C"
+                      stroke="#5EEAD4"
                       strokeWidth="1.8"
                     />
                     <path
-                      d="M106 53L112.5 63H108.5L114 71H98L103.5 63H99.5L106 53Z"
-                      fill="#D99B26"
+                      d="M106 52L109.2 60.8L118 64L109.2 67.2L106 76L102.8 67.2L94 64L102.8 60.8L106 52Z"
+                      fill="#2DD4BF"
                     />
+                    <circle cx="106" cy="64" r="2.2" fill="#F8FAFC" />
                     <defs>
                       <linearGradient
                         id="compactTinFrontGrad"
@@ -596,9 +597,9 @@ export function StickPackStage({
                         y2="110"
                         gradientUnits="userSpaceOnUse"
                       >
-                        <stop stopColor="#DC2626" />
-                        <stop offset="0.52" stopColor="#B91C1C" />
-                        <stop offset="1" stopColor="#7F1D1D" />
+                        <stop stopColor="#133463" />
+                        <stop offset="0.52" stopColor="#0B213F" />
+                        <stop offset="1" stopColor="#061326" />
                       </linearGradient>
                     </defs>
                   </svg>
@@ -612,7 +613,7 @@ export function StickPackStage({
                     type="button"
                     disabled={pullingStick !== null || isShaking}
                     onClick={handleShakeButtonClick}
-                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-[#D8CBB5] bg-[#F7EFE1] px-4 py-2 text-xs font-semibold text-[#143D2B] transition-all duration-200 hover:border-[#D99B26] hover:bg-[#EFE2CB] active:scale-[0.97] disabled:opacity-60"
+                    className="atelier-btn inline-flex items-center gap-2 rounded-full border border-[#64748B]/45 bg-[#F1F5F9] px-4 py-2 text-xs font-semibold text-[#0B213F] transition-all duration-200 hover:border-[#0D9488] hover:bg-[#E0F2FE] active:scale-[0.97] disabled:opacity-60"
                   >
                     <ArrowsClockwise
                       size={14}
@@ -629,7 +630,7 @@ export function StickPackStage({
                     type="button"
                     disabled={pullingStick !== null}
                     onClick={() => handlePullStick(Math.floor(Math.random() * stickCount))}
-                    className="atelier-btn group inline-flex items-center gap-2.5 rounded-full bg-[#B91C1C] py-1.5 pl-5 pr-1.5 text-xs font-semibold text-[#FFFDF9] shadow-[0_10px_24px_-8px_rgba(185,28,28,0.45)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#991B1B] active:scale-[0.98] disabled:opacity-60 sm:text-sm"
+                    className="atelier-btn group inline-flex items-center gap-2.5 rounded-full bg-[#0F766E] py-1.5 pl-5 pr-1.5 text-xs font-semibold text-[#F8FAFC] shadow-[0_10px_24px_-8px_rgba(15,118,110,0.48)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#115E59] active:scale-[0.98] disabled:opacity-60 sm:text-sm"
                   >
                     <span>
                       {pullingStick !== null ? 'Pulling Stick...' : 'Pick a Random Stick'}
@@ -652,12 +653,12 @@ export function StickPackStage({
             >
               {/* Horizontal Wooden Keepsake Stick */}
               <div className="mx-auto mb-3.5 flex max-w-sm items-center overflow-hidden rounded-full border border-[#8D643B]/45 bg-gradient-to-r from-[#EED2AF] via-[#DFB78A] to-[#C89B6E] shadow-sm">
-                <div className="flex h-9 w-14 shrink-0 items-center justify-center bg-[#B91C1C] font-mono text-xs font-bold text-[#FFFDF9]">
+                <div className="flex h-9 w-14 shrink-0 items-center justify-center bg-[#0F766E] font-mono text-xs font-bold text-[#F8FAFC]">
                   #{String(savedDraw.stickNumber).padStart(2, '0')}
                 </div>
-                <div className="h-9 w-1.5 shrink-0 bg-[#D99B26]" />
+                <div className="h-9 w-1.5 shrink-0 bg-[#0B213F]" />
                 <div className="flex flex-1 items-center justify-center gap-1.5 px-3 font-mono text-[11px] font-semibold uppercase tracking-[0.15em] text-[#5B3A1B]">
-                  <Sparkle size={12} weight="fill" className="text-[#B91C1C]" aria-hidden="true" />
+                  <Sparkle size={12} weight="fill" className="text-[#0D9488]" aria-hidden="true" />
                   <span>Stick Claimed From Pack</span>
                 </div>
               </div>
@@ -672,28 +673,28 @@ export function StickPackStage({
                 </div>
               )}
 
-              {/* Compact Parchment Gift Tag */}
-              <div className="mx-auto max-w-md rounded-3xl border-2 border-[#D99B26]/45 bg-[#F7EFE1] p-4 shadow-inner sm:p-6">
-                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#B91C1C] text-[#FFFDF9]">
+              {/* Compact Gift Tag */}
+              <div className="mx-auto max-w-md rounded-3xl border-2 border-[#14B8A6]/40 bg-[#F0FDFA]/80 p-4 shadow-inner sm:p-6">
+                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#0B213F] text-[#2DD4BF]">
                   <Gift size={20} weight="light" aria-hidden="true" />
                 </div>
-                <p className="text-xs font-medium text-[#4E5F54] sm:text-sm">
-                  You are Secret Santa for
+                <p className="text-xs font-medium text-[#334E68] sm:text-sm">
+                  You picked a gift for
                 </p>
 
-                <div className="my-3 rounded-2xl border border-[#D99B26]/35 bg-[#FFFDF9] px-4 py-4 shadow-xs sm:py-5">
+                <div className="my-3 rounded-2xl border border-[#14B8A6]/35 bg-[#FFFFFF] px-4 py-4 shadow-xs sm:py-5">
                   {hideMatchText ? (
-                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#6B7A70] sm:text-sm">
+                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#475569] sm:text-sm">
                       Hidden from screen
                     </p>
                   ) : (
-                    <p className="break-words font-serif text-3xl italic leading-tight text-[#B91C1C] sm:text-4xl">
+                    <p className="break-words font-serif text-3xl italic leading-tight text-[#0F766E] sm:text-4xl">
                       {savedDraw.recipientName}
                     </p>
                   )}
                 </div>
 
-                <p className="text-[11px] leading-snug text-[#5F6F65]">
+                <p className="text-[11px] leading-snug text-[#334E68]">
                   This name has been locked to your draw and removed from the pack so nobody else
                   can pick the same person.
                 </p>
@@ -702,7 +703,7 @@ export function StickPackStage({
                   <button
                     type="button"
                     onClick={() => setHideMatchText((v) => !v)}
-                    className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-[#D8CBB5] bg-[#FFFDF9] px-4 py-2 text-xs font-semibold text-[#143D2B] transition-colors hover:border-[#143D2B]"
+                    className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-[#64748B]/45 bg-[#FFFFFF] px-4 py-2 text-xs font-semibold text-[#0B213F] transition-colors hover:border-[#0B213F]"
                   >
                     {hideMatchText ? (
                       <>
@@ -722,7 +723,7 @@ export function StickPackStage({
                       type="button"
                       disabled={redrawing}
                       onClick={handleRedrawSelf}
-                      className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-[#B91C1C]/40 bg-[#FFFDF9] px-4 py-2 text-xs font-semibold text-[#B91C1C] transition-colors hover:bg-[#FEF2F2] disabled:opacity-50"
+                      className="atelier-btn inline-flex items-center gap-1.5 rounded-full border border-[#0D9488]/50 bg-[#FFFFFF] px-4 py-2 text-xs font-semibold text-[#0F766E] transition-colors hover:bg-[#CCFBF1]/40 disabled:opacity-50"
                     >
                       <ArrowsClockwise
                         size={14}
@@ -738,7 +739,7 @@ export function StickPackStage({
                     <button
                       type="button"
                       onClick={handleNextPersonSharedDevice}
-                      className="atelier-btn inline-flex items-center gap-1.5 rounded-full bg-[#143D2B] px-4 py-2 text-xs font-semibold text-[#FFFDF9] transition-colors hover:bg-[#0F291E]"
+                      className="atelier-btn inline-flex items-center gap-1.5 rounded-full bg-[#0B213F] px-4 py-2 text-xs font-semibold text-[#F8FAFC] transition-colors hover:bg-[#133463]"
                     >
                       <Check size={14} weight="bold" aria-hidden="true" />
                       Next Person

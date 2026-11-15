@@ -87,7 +87,7 @@ function withStateLock(fn) {
 function createDefaultState() {
   const envAdminPin = process.env.DEFAULT_ADMIN_PIN;
   return {
-    eventName: 'Christmas Secret Santa',
+    eventName: 'Exchange Gift',
     budget: '$25 Limit',
     phase: 'REGISTRATION',
     roundId: crypto.randomUUID(),
@@ -113,11 +113,14 @@ function normalizeState(raw) {
       }))
     : [];
 
+  const rawTitle = typeof raw.eventName === 'string' ? raw.eventName.trim() : '';
+  const isLegacyDefault =
+    !rawTitle ||
+    rawTitle.toLowerCase() === 'christmas secret santa' ||
+    rawTitle.toLowerCase() === 'secret santa';
+
   return {
-    eventName:
-      typeof raw.eventName === 'string' && raw.eventName.trim()
-        ? raw.eventName.trim()
-        : base.eventName,
+    eventName: isLegacyDefault ? base.eventName : rawTitle,
     budget: typeof raw.budget === 'string' ? raw.budget : base.budget,
     phase: participants.length > 0 ? 'DRAWING' : 'REGISTRATION',
     roundId: typeof raw.roundId === 'string' && raw.roundId ? raw.roundId : base.roundId,
